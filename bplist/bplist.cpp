@@ -1,4 +1,4 @@
-// bplist.cpp : définit le point d'entrée pour l'application console.
+// Lit les binary property list d'Apple
 //
 // Infos: http://paste.lisp.org/display/52154
 

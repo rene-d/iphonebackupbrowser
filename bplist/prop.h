@@ -7,7 +7,6 @@ typedef unsigned short uint16_t;
 typedef unsigned long uint32_t;
 typedef unsigned __int64 uint64_t;
 
-#include "stringbuilderUTF16.h"
 
 
 #ifndef _HAS_TR1
@@ -333,7 +332,7 @@ public:
 			case kTagUnicodeString:
 				{
 					if (! IsNormalizedString(NormalizationC, _value->unicode->data(), _value->unicode->length())) {
-						//printf("macosx suxx\n");
+						//printf("macosx ~~\n");
 
 						std::wstring norm;
 						norm.resize(_value->unicode->length());
