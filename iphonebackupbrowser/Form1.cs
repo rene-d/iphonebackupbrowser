@@ -15,7 +15,7 @@ using System.Xml.Serialization;
 using System.Diagnostics;
 
 
-namespace bplistui
+namespace iphonebackupbrowser
 {
     public partial class Form1 : Form
     {

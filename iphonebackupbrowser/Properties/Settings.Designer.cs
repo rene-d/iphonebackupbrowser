@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace bplistui.Properties
+namespace iphonebackupbrowser.Properties
 {
 
 

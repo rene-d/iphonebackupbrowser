@@ -1,4 +1,4 @@
-﻿namespace bplistui
+﻿namespace iphonebackupbrowser
 {
     partial class Form1
     {

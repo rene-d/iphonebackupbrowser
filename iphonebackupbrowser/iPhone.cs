@@ -5,12 +5,12 @@ using System.Text;
 using System.Runtime.InteropServices;
 
 
-namespace bplistui
+namespace iphonebackupbrowser
 {
 
     class DLL
     {
-        [DllImport("bplist.dll", EntryPoint = "test", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+        [DllImport("bplist.dll", EntryPoint = "bplist2xml", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
         public static extern int bplist2xml(byte[] ptr, int len, out string xml, bool useOpenStepEpoch);
 
         [DllImport("bplist.dll", EntryPoint = "mdinfo", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]

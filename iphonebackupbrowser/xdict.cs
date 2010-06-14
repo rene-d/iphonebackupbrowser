@@ -11,7 +11,7 @@ using System.Xml;
 using System.Xml.Serialization;
 
 
-namespace bplistui
+namespace iphonebackupbrowser
 {
 
     // Summary:
