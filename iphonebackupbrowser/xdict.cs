@@ -9,6 +9,7 @@ using System.Text;
 using System.IO;
 using System.Xml;
 using System.Xml.Serialization;
+using System.Diagnostics;
 
 
 namespace iphonebackupbrowser
@@ -136,9 +137,10 @@ namespace iphonebackupbrowser
                     }
                 }
             }
-            catch (Exception /*ex*/)
+            catch (Exception ex)
             {
-                // rien, on ignore...
+                // faute de mieux, on ignore...
+                Debug.WriteLine("xdict.open exception: {1}", ex.Message);
                 return null;
             }
         }
