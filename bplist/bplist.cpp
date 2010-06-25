@@ -971,7 +971,7 @@ int wmain(int argc, wchar_t* argv[])
 
 #else
 
-
+// http://msdn.microsoft.com/en-us/library/26thfadc.aspx
 // http://msdn.microsoft.com/en-us/library/as6wyhwt(VS.80).aspx
 
 static void copy(wchar_t **& out, const std::wstring& in)
@@ -1023,7 +1023,7 @@ int __stdcall mdinfo(const wchar_t *filename, wchar_t **Domain, wchar_t **Path)
 
 
 extern "C" __declspec(dllexport)
-int __stdcall  bplist2xml(const char *byteArray, size_t length, char **xml, bool useOpenStepEpoch)
+int __stdcall  bplist2xml_buffer(const char *byteArray, size_t length, char **xml, bool useOpenStepEpoch)
 {
 	BPListReader r;
 
@@ -1040,6 +1040,24 @@ int __stdcall  bplist2xml(const char *byteArray, size_t length, char **xml, bool
 
 
 extern "C" __declspec(dllexport)
+int __stdcall  bplist2xml_file(const wchar_t *filename, char **xml, bool useOpenStepEpoch)
+{
+	BPListReader r;
+
+	stringbuilder ss;
+
+	if (r.open(filename)) {
+		r.getRootObject().toXmlDoc(ss, false, false, useOpenStepEpoch);
+	}
+
+	copy(xml, ss.str());
+	
+	return ss.str().length();
+}
+
+
+/*
+extern "C" __declspec(dllexport)
 int __stdcall test(const char *byteArray, size_t length, char **xml, bool useOpenStepEpoch)
 {
 	(void)byteArray;
@@ -1047,7 +1065,7 @@ int __stdcall test(const char *byteArray, size_t length, char **xml, bool useOpe
 	(void)useOpenStepEpoch;
 
 	FILE *f;
-	if (_wfopen_s(&f, L"c:\\temp\\a.xml", L"rb") != 0)
+	if (_wfopen_s(&f, L"C:\\temp\\a.xml", L"rb") != 0)
 		return 0;
 	fseek(f, 0, SEEK_END);
 	long len = ftell(f);
@@ -1060,5 +1078,7 @@ int __stdcall test(const char *byteArray, size_t length, char **xml, bool useOpe
 
 	return 0;
 }
+*/
+
 
 #endif
