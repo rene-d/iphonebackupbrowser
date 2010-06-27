@@ -98,7 +98,7 @@ namespace iphonebackupbrowser
     {
         public string Key;                  
         public string Domain;
-        public int FileLength;
+        public long FileLength;
         public string ModificationTime;
         public string Path;                 // information issue de .mdinfo
     };
