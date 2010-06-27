@@ -14,7 +14,7 @@ namespace mbdbdump
     {
         static void Main(string[] args)
         {
-            mbdb.ReadMBDB(@"C:\temp", true, true);
+            mbdb.ReadMBDB((args.Length >= 1) ? args[0] : "", true, true);            
         }
     }
 
