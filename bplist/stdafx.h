@@ -15,6 +15,11 @@
 #include <shlobj.h>
 #include <objbase.h>
 
+#if _WIN32_WINNT < 0x0600
+#include "c:/Microsoft IDN Mitigation APIs/Include/normalization.h"
+#endif
+
+
 #include <stdio.h>
 
 #include <io.h>
@@ -32,5 +37,3 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-
-// TODO : faites référence ici aux en-têtes supplémentaires nécessaires au programme
