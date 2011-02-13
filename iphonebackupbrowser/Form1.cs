@@ -40,7 +40,7 @@ namespace iphonebackupbrowser
             /// <summary>
             /// Objet de comparaison ne respectant pas les majuscules et minuscules
             /// </summary>
-            private CaseInsensitiveComparer ObjectCompare;
+            private IComparer ObjectCompare;
 
             /// <summary>
             /// Constructeur de classe.  Initializes various elements
@@ -68,14 +68,30 @@ namespace iphonebackupbrowser
             public int Compare(object x, object y)
             {
                 int compareResult;
-                ListViewItem listviewX, listviewY;
-
-                // Envoit les objets à comparer aux objets ListViewItem
-                listviewX = (ListViewItem)x;
-                listviewY = (ListViewItem)y;
+                
+                // Envoie les objets à comparer aux objets ListViewItem                
+                ListViewItem.ListViewSubItem siX = ((ListViewItem)x).SubItems[ColumnToSort];
+                ListViewItem.ListViewSubItem siY = ((ListViewItem)y).SubItems[ColumnToSort];
 
                 // Compare les deux éléments
-                compareResult = ObjectCompare.Compare(listviewX.SubItems[ColumnToSort].Text, listviewY.SubItems[ColumnToSort].Text);
+                if (siX.Tag != null || siY.Tag != null)
+                {
+                    long a, b;
+
+                    if (siX.Tag != null) a = (long)(siX.Tag); else a = 0;
+                    if (siY.Tag != null) b = (long)(siY.Tag); else b = 0;
+
+                    if (a < b)
+                        compareResult = -1;
+                    else if (a > b)
+                        compareResult = 1;
+                    else
+                        compareResult = 0;
+                }
+                else
+                {
+                    compareResult = ObjectCompare.Compare(siX.Text, siY.Text);
+                }
 
                 // Calcule la valeur correcte d'après la comparaison d'objets
                 if (OrderOfSort == SortOrder.Ascending)
@@ -94,6 +110,7 @@ namespace iphonebackupbrowser
                     return 0;
                 }
             }
+
 
             /// <summary>
             /// Obtient ou définit le numéro de la colonne à laquelle appliquer l'opération de tri (par défaut sur '0').
@@ -137,7 +154,7 @@ namespace iphonebackupbrowser
         string appsDirectory;
         private Dictionary<string, iPhoneIPA> appsCatalog;
 
-        private ListViewColumnSorter lvwColumnSorter;
+        private ListViewColumnSorter lvwColumnSorter1, lvwColumnSorter2;
 
 
         public Form1()
@@ -155,15 +172,17 @@ namespace iphonebackupbrowser
             listView1.Columns.Add("App Size", 90, HorizontalAlignment.Right);
 
             listView2.Columns.Add("Name", 400);
-            listView2.Columns.Add("Size");
+            listView2.Columns.Add("Size", 90, HorizontalAlignment.Right);
             listView2.Columns.Add("Date", 130);
             listView2.Columns.Add("Domain", 300);
             listView2.Columns.Add("Key", 250);
 
             // Créer une instance d'une méthode de trie de la colonne ListView et l'attribuer
             // au contrôle ListView.            
-            lvwColumnSorter = new ListViewColumnSorter();
-            listView2.ListViewItemSorter = lvwColumnSorter;
+            lvwColumnSorter1 = new ListViewColumnSorter();
+            listView1.ListViewItemSorter = lvwColumnSorter1;
+            lvwColumnSorter2 = new ListViewColumnSorter();
+            listView2.ListViewItemSorter = lvwColumnSorter2;
 
             LoadManifests();
             
@@ -373,6 +392,7 @@ namespace iphonebackupbrowser
         }
 
 
+        #region parse iTunes -> 9.1 (deprecated)
 
         private void parseApplications(xdict di, HashSet<string> files)
         {
@@ -464,7 +484,7 @@ namespace iphonebackupbrowser
                     if (q.key == "Domain")
                         f.Domain = (string)q.item;
                     else if (q.key == "ModificationTime")
-                        f.ModificationTime = (string)q.item;
+                        f.ModificationTime = DateTime.Parse((string)q.item);
                     else if (q.key == "FileLength")
                         f.FileLength = Convert.ToInt64((string)q.item);
                 }
@@ -489,6 +509,7 @@ namespace iphonebackupbrowser
                 listView1.Items.Add(lvi);
             }
         }
+        #endregion
 
 
         private class appFiles
@@ -564,12 +585,13 @@ namespace iphonebackupbrowser
                 lvi.Tag = app;
                 lvi.Text = app.DisplayName;
                 lvi.SubItems.Add(ipa != null ? ipa.itemName : app.Name);
-                lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString() : "N/A");                
-                //lvi.SubItems.Add(app.Identifier != null ? app.Identifier : "N/A");
+                lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString("N0") : "N/A");
                 lvi.SubItems.Add(app.FilesLength.ToString("N0"));
+                lvi.SubItems.Add(ipa != null ? ipa.totalSize.ToString("N0") : "");
 
-                if (ipa != null)
-                    lvi.SubItems.Add(ipa.totalSize.ToString("N0"));
+                lvi.SubItems[2].Tag = (long)(app.Files != null ? app.Files.Count : 0);
+                lvi.SubItems[3].Tag = (long)app.FilesLength;
+                lvi.SubItems[4].Tag = (long)(ipa != null ? ipa.totalSize : 0);
 
                 listView1.Items.Add(lvi);
             }
@@ -597,9 +619,14 @@ namespace iphonebackupbrowser
                 lvi.Tag = system;
                 lvi.Text = system.DisplayName;
                 lvi.SubItems.Add(system.Name);
-                lvi.SubItems.Add(system.Files != null ? system.Files.Count.ToString() : "N/A");
-                //lvi.SubItems.Add(system.Identifier != null ? system.Identifier : "N/A");
+                lvi.SubItems.Add(system.Files != null ? system.Files.Count.ToString("N0") : "N/A");
                 lvi.SubItems.Add(system.FilesLength.ToString("N0"));
+                lvi.SubItems.Add("---");
+
+                lvi.SubItems[2].Tag = (long)(system.Files != null ? system.Files.Count : 0);
+                lvi.SubItems[3].Tag = (long)system.FilesLength;
+                lvi.SubItems[4].Tag = (long)0;
+
                 listView1.Items.Add(lvi);
             }
         }
@@ -741,7 +768,7 @@ namespace iphonebackupbrowser
                         ff.Key = x.key;
                         ff.Domain = x.Domain;
                         ff.Path = x.Path;
-                        ff.ModificationTime = x.aTime.ToString();
+                        ff.ModificationTime = x.aTime;
                         ff.FileLength = x.FileLength;
                     }
                     else
@@ -764,10 +791,13 @@ namespace iphonebackupbrowser
                     ListViewItem lvi = new ListViewItem();
                     lvi.Tag = ff;
                     lvi.Text = ff.Path;
-                    lvi.SubItems.Add(ff.FileLength.ToString());
-                    lvi.SubItems.Add(ff.ModificationTime);
+                    lvi.SubItems.Add(ff.FileLength.ToString("N0"));
+                    lvi.SubItems.Add(ff.ModificationTime.ToString());
                     lvi.SubItems.Add(ff.Domain);
                     lvi.SubItems.Add(ff.Key);
+
+                    lvi.SubItems[1].Tag = (long)ff.FileLength;
+                    lvi.SubItems[2].Tag = (long)ff.ModificationTime.ToBinary();
 
                     lvic[idx++] = lvi;
                 }
@@ -799,40 +829,57 @@ namespace iphonebackupbrowser
 
         private void listView1_ColumnClick(object sender, ColumnClickEventArgs e)
         {
-            switch (listView1.Sorting)
+            // Déterminer si la colonne sélectionnée est déjà la colonne triée.
+            if (e.Column == lvwColumnSorter1.SortColumn)
             {
-                case SortOrder.None: listView1.Sorting = SortOrder.Ascending; break;
-                case SortOrder.Ascending: listView1.Sorting = SortOrder.Descending; break;
-                case SortOrder.Descending: listView1.Sorting = SortOrder.None; break;
+                // Inverser le sens de tri en cours pour cette colonne.
+                if (lvwColumnSorter1.Order == SortOrder.Ascending)
+                {
+                    lvwColumnSorter1.Order = SortOrder.Descending;
+                }
+                else
+                {
+                    lvwColumnSorter1.Order = SortOrder.Ascending;
+                }                
             }
+            else
+            {
+                // Définir le numéro de colonne à trier ; par défaut sur croissant.
+                lvwColumnSorter1.SortColumn = e.Column;
+                lvwColumnSorter1.Order = SortOrder.Ascending;                
+            }                        
+
+            // Procéder au tri avec les nouvelles options.
+            this.listView1.Sort();
         }
 
 
         private void listView2_ColumnClick(object sender, ColumnClickEventArgs e)
         {
             // Déterminer si la colonne sélectionnée est déjà la colonne triée.
-            if (e.Column == lvwColumnSorter.SortColumn)
+            if (e.Column == lvwColumnSorter2.SortColumn)
             {
                 // Inverser le sens de tri en cours pour cette colonne.
-                if (lvwColumnSorter.Order == SortOrder.Ascending)
+                if (lvwColumnSorter2.Order == SortOrder.Ascending)
                 {
-                    lvwColumnSorter.Order = SortOrder.Descending;
+                    lvwColumnSorter2.Order = SortOrder.Descending;
                 }
                 else
                 {
-                    lvwColumnSorter.Order = SortOrder.Ascending;
+                    lvwColumnSorter2.Order = SortOrder.Ascending;
                 }
             }
             else
             {
                 // Définir le numéro de colonne à trier ; par défaut sur croissant.
-                lvwColumnSorter.SortColumn = e.Column;
-                lvwColumnSorter.Order = SortOrder.Ascending;
+                lvwColumnSorter2.SortColumn = e.Column;
+                lvwColumnSorter2.Order = SortOrder.Ascending;
             }
 
             // Procéder au tri avec les nouvelles options.
             this.listView2.Sort();
         }
+
 
         private void listView2_ItemDrag(object sender, ItemDragEventArgs e)
         {
