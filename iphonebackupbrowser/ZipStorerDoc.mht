@@ -1,0 +1,320 @@
+From: <Saved by Windows Internet Explorer 8>
+Subject: ZipStorerTest
+Date: Sun, 14 Mar 2010 00:28:32 -0500
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	type="text/html";
+	boundary="----=_NextPart_000_0000_01CAC30D.46DAB550"
+X-MimeOLE: Produced By Microsoft MimeOLE V6.00.2900.5579
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0000_01CAC30D.46DAB550
+Content-Type: text/html;
+	charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Content-Location: file://C:\Documents and Settings\usd33008\Desktop\ZipStorerTest\ZipStorerTest\ZipStorerDoc.html
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD><TITLE>ZipStorerTest</TITLE>
+<META content=3D"text/html; charset=3Dwindows-1252" =
+http-equiv=3DContent-Type><LINK=20
+rel=3Dstylesheet type=3Dtext/css=20
+href=3D"file:///C:/Documents%20and%20Settings/usd33008/Desktop/ZipStorerT=
+est/ZipStorerTest/doc.css">
+<META name=3DGENERATOR content=3D"MSHTML 8.00.6001.18876"></HEAD>
+<BODY><A name=3DT:System.IO.Compression.ZipStorer>
+<H1>System.IO.Compression.ZipStorer</H1></A>
+<P>Unique class for compression/decompression file. Represents a Zip =
+file.=20
+</P><A name=3DF:System.IO.Compression.ZipStorer.EncodeUTF8>
+<H2>EncodeUTF8 field</H2></A>
+<P>True if UTF8 encoding for filename and comments, false if default (CP =
+
+437)</P><A name=3DF:System.IO.Compression.ZipStorer.ForceDeflating>
+<H2>ForceDeflating field</H2></A>
+<P>Force deflate algotithm even if it inflates the stored file. Off by=20
+default.</P><A=20
+name=3DM:System.IO.Compression.ZipStorer.Create(System.String,System.Stri=
+ng)>
+<H2>Create(String,String) method</H2></A>
+<P>Method to create a new storage file </P>
+<H4>Parameters</H4>
+<DL>
+  <DT><I>_filename</I>=20
+  <DD>Full path of Zip file to create=20
+  <DT><I>_comment</I>=20
+  <DD>General comment for Zip file </DD></DL>
+<H4>Returns</H4>A valid ZipStorer object<A=20
+name=3DM:System.IO.Compression.ZipStorer.Create(System.IO.Stream,System.S=
+tring)>=20
+<H2>Create(Stream,String) method</H2></A>
+<P>Method to create a new zip storage in a stream </P>
+<H4>Parameters</H4>
+<DL>
+  <DT><I>_stream</I>=20
+  <DD>
+  <DT><I>_comment</I>=20
+  <DD></DD></DL>
+<H4>Returns</H4>A valid ZipStorer object<A=20
+name=3DM:System.IO.Compression.ZipStorer.Open(System.String,System.IO.Fil=
+eAccess)>=20
+
+<H2>Open(String,FileAccess) method</H2></A>
+<P>Method to open an existing storage file </P>
+<H4>Parameters</H4>
+<DL>
+  <DT><I>_filename</I>=20
+  <DD>Full path of Zip file to open=20
+  <DT><I>_access</I>=20
+  <DD>File access mode as used in FileStream constructor </DD></DL>
+<H4>Returns</H4>A valid ZipStorer object<A=20
+name=3DM:System.IO.Compression.ZipStorer.Open(System.IO.Stream,System.IO.=
+FileAccess)>=20
+
+<H2>Open(Stream,FileAccess) method</H2></A>
+<P>Method to open an existing storage from stream </P>
+<H4>Parameters</H4>
+<DL>
+  <DT><I>_stream</I>=20
+  <DD>Already opened stream with zip contents=20
+  <DT><I>_access</I>=20
+  <DD>File access mode for stream operations </DD></DL>
+<H4>Returns</H4>A valid ZipStorer object<A=20
+name=3DM:System.IO.Compression.ZipStorer.AddFile(System.IO.Compression.Zi=
+pStorer.Compression,System.String,System.String,System.String)>=20
+
+<H2>AddFile(Compression,String,String,String) method</H2></A>
+<P>Add full contents of a file into the Zip storage </P>
+<H4>Parameters</H4>
+<DL>
+  <DT><I>_method</I>=20
+  <DD>Compression method=20
+  <DT><I>_pathname</I>=20
+  <DD>Full path of file to add to Zip storage=20
+  <DT><I>_filenameInZip</I>=20
+  <DD>Filename and path as desired in Zip directory=20
+  <DT><I>_comment</I>=20
+  <DD>Comment for stored file </DD></DL><A=20
+name=3DM:System.IO.Compression.ZipStorer.AddStream(System.IO.Compression.=
+ZipStorer.Compression,System.String,System.IO.Stream,System.DateTime,Syst=
+em.String)>
+<H2>AddStream(Compression,String,Stream,DateTime,String) method</H2></A>
+<P>Add full contents of a stream into the Zip storage </P>
+<H4>Parameters</H4>
+<DL>
+  <DT><I>_method</I>=20
+  <DD>Compression method=20
+  <DT><I>_filenameInZip</I>=20
+  <DD>Filename and path as desired in Zip directory=20
+  <DT><I>_source</I>=20
+  <DD>Stream object containing the data to store in Zip=20
+  <DT><I>_modTime</I>=20
+  <DD>Modification time of the data to store=20
+  <DT><I>_comment</I>=20
+  <DD>Comment for stored file </DD></DL><A=20
+name=3DM:System.IO.Compression.ZipStorer.Close>
+<H2>Close() method</H2></A>
+<P>Updates central directory (if pertinent) and close the Zip storage =
+</P>
+<H4>Remarks</H4>This is a required step, unless automatic dispose is =
+used<A=20
+name=3DM:System.IO.Compression.ZipStorer.ReadCentralDir>=20
+<H2>ReadCentralDir() method</H2></A>
+<P>Read all the file records in the central directory </P>
+<H4>Returns</H4>List of all entries in directory<A=20
+name=3DM:System.IO.Compression.ZipStorer.ExtractFile(System.IO.Compressio=
+n.ZipStorer.ZipFileEntry,System.String)>=20
+
+<H2>ExtractFile(ZipFileEntry,String) method</H2></A>
+<P>Copy the contents of a stored file into a physical file </P>
+<H4>Parameters</H4>
+<DL>
+  <DT><I>_zfe</I>=20
+  <DD>Entry information of file to extract=20
+  <DT><I>_filename</I>=20
+  <DD>Name of file to store uncompressed data </DD></DL>
+<H4>Returns</H4>True if success, false if not.=20
+<H4>Remarks</H4>Unique compression methods are Store and Deflate<A=20
+name=3DM:System.IO.Compression.ZipStorer.ExtractFile(System.IO.Compressio=
+n.ZipStorer.ZipFileEntry,System.IO.Stream)>=20
+
+<H2>ExtractFile(ZipFileEntry,Stream) method</H2></A>
+<P>Copy the contents of a stored file into an opened stream </P>
+<H4>Parameters</H4>
+<DL>
+  <DT><I>_zfe</I>=20
+  <DD>Entry information of file to extract=20
+  <DT><I>_stream</I>=20
+  <DD>Stream to store the uncompressed data </DD></DL>
+<H4>Returns</H4>True if success, false if not.=20
+<H4>Remarks</H4>Unique compression methods are Store and Deflate<A=20
+name=3DM:System.IO.Compression.ZipStorer.RemoveEntries(System.IO.Compress=
+ion.ZipStorer@,System.Collections.Generic.List{System.IO.Compression.ZipS=
+torer.ZipFileEntry})>=20
+
+<H2>RemoveEntries(ZipStorer@,ZipFileEntry}) method</H2></A>
+<P>Removes one of many files in storage. It creates a new Zip file. </P>
+<H4>Parameters</H4>
+<DL>
+  <DT><I>_zip</I>=20
+  <DD>Reference to the current Zip object=20
+  <DT><I>_zfes</I>=20
+  <DD>List of Entries to remove from storage </DD></DL>
+<H4>Returns</H4>True if success, false if not=20
+<H4>Remarks</H4>This method only works for storage of type FileStream<A=20
+name=3DM:System.IO.Compression.ZipStorer.Dispose>=20
+<H2>Dispose() method</H2></A>
+<P>Closes the Zip file stream </P><A=20
+name=3DT:System.IO.Compression.ZipStorer.Compression>
+<H1>System.IO.Compression.ZipStorer.Compression</H1></A>
+<P>Compression method enumeration </P><A=20
+name=3DF:System.IO.Compression.ZipStorer.Compression.Store>
+<H2>Store field</H2></A>
+<P>Uncompressed storage</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.Compression.Deflate>
+<H2>Deflate field</H2></A>
+<P>Deflate compression method</P><A=20
+name=3DT:System.IO.Compression.ZipStorer.ZipFileEntry>
+<H1>System.IO.Compression.ZipStorer.ZipFileEntry</H1></A>
+<P>Represents an entry in Zip file directory </P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.Method>
+<H2>Method field</H2></A>
+<P>Compression method</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.FilenameInZip>
+<H2>FilenameInZip field</H2></A>
+<P>Full path and filename as stored in Zip</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.FileSize>
+<H2>FileSize field</H2></A>
+<P>Original file size</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.CompressedSize>
+<H2>CompressedSize field</H2></A>
+<P>Compressed file size</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.HeaderOffset>
+<H2>HeaderOffset field</H2></A>
+<P>Offset of header information inside Zip storage</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.FileOffset>
+<H2>FileOffset field</H2></A>
+<P>Offset of file inside Zip storage</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.HeaderSize>
+<H2>HeaderSize field</H2></A>
+<P>Size of header information</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.Crc32>
+<H2>Crc32 field</H2></A>
+<P>32-bit checksum of entire file</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.ModifyTime>
+<H2>ModifyTime field</H2></A>
+<P>Last modification time of file</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.Comment>
+<H2>Comment field</H2></A>
+<P>User comment for file</P><A=20
+name=3DF:System.IO.Compression.ZipStorer.ZipFileEntry.EncodeUTF8>
+<H2>EncodeUTF8 field</H2></A>
+<P>True if UTF8 encoding for filename and comments, false if default (CP =
+
+437)</P><A =
+name=3DM:System.IO.Compression.ZipStorer.ZipFileEntry.ToString>
+<H2>ToString() method</H2></A>
+<P>Overriden method</P>
+<H4>Returns</H4>Filename in Zip<A =
+name=3DT:ZipStorerTest.Properties.Resources>=20
+<H1>ZipStorerTest.Properties.Resources</H1></A>
+<P>A strongly-typed resource class, for looking up localized strings, =
+etc.=20
+</P><A name=3DP:ZipStorerTest.Properties.Resources.ResourceManager>
+<H2>ResourceManager property</H2></A>
+<P>Returns the cached ResourceManager instance used by this class. =
+</P><A=20
+name=3DP:ZipStorerTest.Properties.Resources.Culture>
+<H2>Culture property</H2></A>
+<P>Overrides the current thread's CurrentUICulture property for all =
+resource=20
+lookups using this strongly typed resource class. </P></BODY></HTML>
+
+------=_NextPart_000_0000_01CAC30D.46DAB550
+Content-Type: text/css;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Location: file:///C:/Documents%20and%20Settings/usd33008/Desktop/ZipStorerTest/ZipStorerTest/doc.css
+
+BODY {
+	FONT-FAMILY: "Verdana", sans-serif; FONT-SIZE: x-small
+}
+CODE {
+	FONT-SIZE: x-small
+}
+DT {
+	FONT-WEIGHT: bold
+}
+A:link {
+	COLOR: #4e4887
+}
+A:visited {
+	COLOR: #8080c8
+}
+A:active {
+	COLOR: #f16043
+}
+A:hover {
+	COLOR: #f16043
+}
+P {
+	MARGIN-TOP: 0.5em; MARGIN-BOTTOM: 0.5em
+}
+XMP {
+	BACKGROUND-COLOR: #ffdfbe; MARGIN: 1em; FONT-SIZE: x-small
+}
+PRE {
+	BACKGROUND-COLOR: #ffdfbe; MARGIN: 1em; FONT-SIZE: x-small
+}
+TABLE {
+	BORDER-BOTTOM: medium none; BORDER-LEFT: medium none; BORDER-TOP: =
+medium none; BORDER-RIGHT: medium none
+}
+TD {
+	BORDER-BOTTOM: medium none; TEXT-ALIGN: left; BORDER-LEFT: medium none; =
+PADDING-BOTTOM: 2px; BACKGROUND-COLOR: #ffdfbe; MARGIN: 2px; =
+PADDING-LEFT: 2px; PADDING-RIGHT: 2px; FONT-SIZE: x-small; BORDER-TOP: =
+medium none; BORDER-RIGHT: medium none; PADDING-TOP: 2px
+}
+TH {
+	BORDER-BOTTOM: medium none; TEXT-ALIGN: left; BORDER-LEFT: medium none; =
+PADDING-BOTTOM: 2px; BACKGROUND-COLOR: #ffdfbe; MARGIN: 2px; =
+PADDING-LEFT: 2px; PADDING-RIGHT: 2px; FONT-SIZE: x-small; BORDER-TOP: =
+medium none; BORDER-RIGHT: medium none; PADDING-TOP: 2px
+}
+TH {
+	BACKGROUND-COLOR: #ffaa57
+}
+UL {
+	MARGIN-TOP: 0.5em
+}
+OL {
+	MARGIN-TOP: 0.5em
+}
+H1 {
+	MARGIN-TOP: 1em; PADDING-LEFT: 4px; MARGIN-BOTTOM: 0.5em; COLOR: =
+#336699; FONT-SIZE: x-large
+}
+H2 {
+	BORDER-LEFT: #4e4887 8px solid; MARGIN-TOP: 1em; PADDING-LEFT: 4px; =
+MARGIN-BOTTOM: 0.5em; COLOR: #4e4887; FONT-SIZE: small; BORDER-TOP: =
+#4e4887 1px solid
+}
+H3 {
+	BORDER-LEFT: #4e4887 4px solid; MARGIN-TOP: 1em; PADDING-LEFT: 4px; =
+MARGIN-BOTTOM: 0.5em; COLOR: #4e4887; FONT-SIZE: x-small; BORDER-TOP: =
+#4e4887 1px solid
+}
+H4 {
+	MARGIN-BOTTOM: 0.5em; COLOR: #4e4887; FONT-SIZE: x-small
+}
+H5 {
+	MARGIN-BOTTOM: 0.5em; COLOR: #4e4887; FONT-SIZE: xx-small
+}
+H6 {
+	FONT-STYLE: italic; MARGIN-BOTTOM: 0.5em; COLOR: #4e4887; FONT-SIZE: =
+xx-small
+}
+
+------=_NextPart_000_0000_01CAC30D.46DAB550--

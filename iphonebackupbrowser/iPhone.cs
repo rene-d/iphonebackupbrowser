@@ -110,4 +110,13 @@ namespace iphonebackupbrowser
         //public List<iPhoneApp> Applications;
         public Dictionary<string, iPhoneFile> Files;
     };
+
+
+    class iPhoneIPA
+    {
+        public string softwareVersionBundleId;      // identifier
+        public string itemName;                     // name of the app
+        public string fileName;                     // .ipa archive name
+        public uint totalSize = 0;                  // uncompressed size
+    };
 }

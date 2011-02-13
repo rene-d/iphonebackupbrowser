@@ -13,6 +13,8 @@ using System.IO;
 using System.Xml;
 using System.Xml.Serialization;
 using System.Diagnostics;
+using System.IO.Compression;
+using System.Threading;
 
 using mbdbdump;
 
@@ -20,6 +22,8 @@ namespace iphonebackupbrowser
 {
     public partial class Form1 : Form
     {
+        #region ListViewColumnSorter
+
         /// <summary>
         /// Cette classe est une implémentation de l'interface 'IComparer'.
         /// </summary>
@@ -123,10 +127,15 @@ namespace iphonebackupbrowser
 
         }
 
+        #endregion
+
+
         private List<iPhoneBackup> backups = new List<iPhoneBackup>();
         private iPhoneManifestData manifest;
         private mbdb.MBFileRecord[] files92;
 
+        string appsDirectory;
+        private Dictionary<string, iPhoneIPA> appsCatalog;
 
         private ListViewColumnSorter lvwColumnSorter;
 
@@ -142,7 +151,8 @@ namespace iphonebackupbrowser
             listView1.Columns.Add("Display Name", 200);
             listView1.Columns.Add("Name", 200);
             listView1.Columns.Add("Files", 50, HorizontalAlignment.Right);
-            listView1.Columns.Add("Size", 100, HorizontalAlignment.Right);
+            listView1.Columns.Add("Size", 90, HorizontalAlignment.Right);
+            listView1.Columns.Add("App Size", 90, HorizontalAlignment.Right);
 
             listView2.Columns.Add("Name", 400);
             listView2.Columns.Add("Size");
@@ -156,6 +166,149 @@ namespace iphonebackupbrowser
             listView2.ListViewItemSorter = lvwColumnSorter;
 
             LoadManifests();
+            
+            // asynchronous load .ipa
+            backgroundWorker1 = new System.ComponentModel.BackgroundWorker();
+
+            backgroundWorker1.DoWork += new DoWorkEventHandler(backgroundWorker1_DoWork);
+            backgroundWorker1.RunWorkerCompleted += new RunWorkerCompletedEventHandler(backgroundWorker1_RunWorkerCompleted);
+            backgroundWorker1.ProgressChanged += new ProgressChangedEventHandler(backgroundWorker1_ProgressChanged);
+            
+            backgroundWorker1.WorkerReportsProgress = true;
+            backgroundWorker1.WorkerSupportsCancellation = true;
+
+            backgroundWorker1.RunWorkerAsync();
+        }
+
+
+        // This BackgroundWorker is used to demonstrate the 
+        // preferred way of performing asynchronous operations.
+        private BackgroundWorker backgroundWorker1;
+
+
+         // This event handler is where the time-consuming work is done.
+        private void backgroundWorker1_DoWork(object sender, DoWorkEventArgs e)
+        {
+            BackgroundWorker worker = sender as BackgroundWorker;
+
+            LoadIPAs(worker, e);
+        }
+
+        // This event handler deals with the results of the background operation.
+        private void backgroundWorker1_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+        {
+            this.Text = "iPhone Backup Browser";
+            backgroundWorker1 = null;
+
+            if (comboBox1.SelectedIndex != -1)
+                comboBox1_SelectedIndexChanged(null, null);
+        }
+
+        // This event handler updates the progress bar.
+        private void backgroundWorker1_ProgressChanged(object sender, ProgressChangedEventArgs e)
+        {
+            this.Text = "iPhone Backup Browser - Loading IPA " + e.ProgressPercentage.ToString("N0") + "%"; // +(string)e.UserState;
+        }
+
+
+        private void LoadIPAs(BackgroundWorker worker, DoWorkEventArgs e)
+        {
+            Dictionary<string, iPhoneIPA> apps = new Dictionary<string, iPhoneIPA>();
+            string appsDirectory;
+
+            try
+            {
+                appsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+                appsDirectory = Path.Combine(appsDirectory, "iTunes", "Mobile Applications");
+
+                DirectoryInfo d = new DirectoryInfo(appsDirectory);
+
+                FileInfo[] fi = d.GetFiles("*.ipa");
+
+                int lastprogress = -1;
+
+                for (int i = 0; i < fi.Length; ++i)
+                {
+                    if (worker.CancellationPending) e.Cancel = true;
+
+                    //System.Threading.Thread.Sleep(20);
+
+                    int progress = (i * 100 / fi.Length);
+                    if (lastprogress != progress)
+                    {
+                        lastprogress = progress;
+                        worker.ReportProgress(progress, fi[i].Name);
+                    }
+
+                    using (ZipStorer zip = ZipStorer.Open(fi[i].FullName, FileAccess.Read))
+                    {
+                        iPhoneIPA ipa = new iPhoneIPA();
+
+                        ipa.fileName = fi[i].Name;
+
+                        foreach (ZipStorer.ZipFileEntry f in zip.ReadCentralDir())
+                        {
+                            if (worker.CancellationPending) e.Cancel = true;
+
+                            // computes the files total size
+                            ipa.totalSize += f.FileSize;
+
+                            // analyzes the app metadata
+                            if (f.FilenameInZip == "iTunesMetadata.plist")
+                            {
+                                MemoryStream mem = new MemoryStream();
+                                zip.ExtractFile(f, mem);
+
+                                ipa.softwareVersionBundleId = f.Comment;
+
+                                if (mem.Length <= 8) continue;
+
+                                byte[] xml = mem.ToArray();
+
+                                // iTunesMetadata.plist is actually a binary plist
+                                if (xml[0] == 'b' && xml[1] == 'p')
+                                    DLL.bplist2xml(mem.ToArray(), (int)mem.Length, out xml, false);
+
+                                if (xml != null)
+                                {
+                                    using (StreamReader sr = new StreamReader(new MemoryStream(xml)))
+                                    {
+                                        xdict dd = xdict.open(sr);
+
+                                        if (dd != null)
+                                        {
+                                            dd.findKey("softwareVersionBundleId", out ipa.softwareVersionBundleId);
+                                            dd.findKey("itemName", out ipa.itemName);                                                
+                                        }                                       
+                                    }
+                                }
+                            }
+                        }
+
+                        // if we have found the app id
+                        if (ipa.softwareVersionBundleId != null)
+                        {
+                            //Debug.WriteLine("{0} {1}", fi[i].Name, softwareVersionBundleId);
+
+                            // if the BundleId has been already found in some .ipa, we assume this one is more recent
+                            if (apps.ContainsKey(ipa.softwareVersionBundleId))
+                                apps[ipa.softwareVersionBundleId] = ipa;
+                            else
+                                apps.Add(ipa.softwareVersionBundleId, ipa);
+                        }
+                    }
+
+                }
+            }
+            catch (DirectoryNotFoundException /*ex*/)
+            {
+                apps = null;
+                appsDirectory = null;
+                //MessageBox.Show(ex.ToString());
+            }
+
+            this.appsCatalog = apps;
+            this.appsDirectory = appsDirectory;
         }
 
 
@@ -274,7 +427,6 @@ namespace iphonebackupbrowser
                 lvi.SubItems.Add(app.Name);
                 lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString() : "N/A");
                 //lvi.SubItems.Add(app.Identifier != null ? app.Identifier : "N/A");
-                lvi.SubItems.Add(app.FilesLength.ToString("N0"));
                 listView1.Items.Add(lvi);
             }
         }
@@ -333,8 +485,7 @@ namespace iphonebackupbrowser
                 lvi.Text = system.DisplayName;
                 lvi.SubItems.Add(system.Name);
                 lvi.SubItems.Add(system.Files != null ? system.Files.Count.ToString() : "N/A");
-                //lvi.SubItems.Add(system.Identifier != null ? system.Identifier : "N/A");
-                lvi.SubItems.Add(system.FilesLength.ToString("N0"));
+                //lvi.SubItems.Add(system.Identifier != null ? system.Identifier : "N/A");                
                 listView1.Items.Add(lvi);
             }
         }
@@ -403,13 +554,23 @@ namespace iphonebackupbrowser
                     filesByDomain.Remove("AppDomain-" + app.Key);
                 }
 
+                iPhoneIPA ipa = null;
+                if (appsCatalog != null)
+                {
+                    appsCatalog.TryGetValue(app.Identifier, out ipa);
+                }
+
                 ListViewItem lvi = new ListViewItem();
                 lvi.Tag = app;
                 lvi.Text = app.DisplayName;
-                lvi.SubItems.Add(app.Name);
+                lvi.SubItems.Add(ipa != null ? ipa.itemName : app.Name);
                 lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString() : "N/A");                
                 //lvi.SubItems.Add(app.Identifier != null ? app.Identifier : "N/A");
                 lvi.SubItems.Add(app.FilesLength.ToString("N0"));
+
+                if (ipa != null)
+                    lvi.SubItems.Add(ipa.totalSize.ToString("N0"));
+
                 listView1.Items.Add(lvi);
             }
 
@@ -550,7 +711,7 @@ namespace iphonebackupbrowser
         }
 
 
-        private void listView1_DoubleClick(object sender, EventArgs e)
+        private void listView1_Click(object sender, EventArgs e)
         {
             iPhoneApp app = (iPhoneApp)listView1.FocusedItem.Tag;
 
@@ -706,11 +867,28 @@ namespace iphonebackupbrowser
             prc.Start();
         }
 
+
         private void button2_Click(object sender, EventArgs e)
         {
             LoadManifests();
         }
 
+
+        private void listView1_DoubleClick(object sender, EventArgs e)
+        {
+            iPhoneApp app = (iPhoneApp)listView1.FocusedItem.Tag;
+
+            if (app == null) return;
+
+            iPhoneIPA ipa;
+            if (!appsCatalog.TryGetValue(app.Identifier, out ipa))
+                return;
+
+            string argument = @"/select, """ + Path.Combine(appsDirectory, ipa.fileName) + @"""";
+            System.Diagnostics.Process.Start("explorer.exe", argument);
+        }
+
+        
         /*
         private void listView2_MouseDown(object sender, MouseEventArgs e)
         {
@@ -724,5 +902,4 @@ namespace iphonebackupbrowser
         }
         */
     }
-
 }
