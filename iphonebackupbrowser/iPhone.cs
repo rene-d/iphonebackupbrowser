@@ -91,6 +91,7 @@ namespace iphonebackupbrowser
         public string Identifier;           // CFBundleIdentifier
         public string Container;            // le chemin d'install sur l'iPhone
         public List <String> Files;
+        public long FilesLength;            // taille totale des fichiers
     };
 
 

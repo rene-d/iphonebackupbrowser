@@ -141,8 +141,8 @@ namespace iphonebackupbrowser
         {
             listView1.Columns.Add("Display Name", 200);
             listView1.Columns.Add("Name", 200);
-            listView1.Columns.Add("Files");
-            listView1.Columns.Add("Identifier", 200);
+            listView1.Columns.Add("Files", 50, HorizontalAlignment.Right);
+            listView1.Columns.Add("Size", 100, HorizontalAlignment.Right);
 
             listView2.Columns.Add("Name", 400);
             listView2.Columns.Add("Size");
@@ -155,7 +155,17 @@ namespace iphonebackupbrowser
             lvwColumnSorter = new ListViewColumnSorter();
             listView2.ListViewItemSorter = lvwColumnSorter;
 
+            LoadManifests();
+        }
 
+
+        private void LoadManifests()
+        {
+            backups.Clear();
+            comboBox1.Items.Clear();
+            listView1.Items.Clear();
+            listView2.Items.Clear();
+         
             string s = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
             s = Path.Combine(s, "Apple Computer", "MobileSync", "Backup");
@@ -263,7 +273,8 @@ namespace iphonebackupbrowser
                 lvi.Text = app.DisplayName;
                 lvi.SubItems.Add(app.Name);
                 lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString() : "N/A");
-                lvi.SubItems.Add(app.Identifier != null ? app.Identifier : "N/A");
+                //lvi.SubItems.Add(app.Identifier != null ? app.Identifier : "N/A");
+                lvi.SubItems.Add(app.FilesLength.ToString("N0"));
                 listView1.Items.Add(lvi);
             }
         }
@@ -322,11 +333,24 @@ namespace iphonebackupbrowser
                 lvi.Text = system.DisplayName;
                 lvi.SubItems.Add(system.Name);
                 lvi.SubItems.Add(system.Files != null ? system.Files.Count.ToString() : "N/A");
-                lvi.SubItems.Add(system.Identifier != null ? system.Identifier : "N/A");
+                //lvi.SubItems.Add(system.Identifier != null ? system.Identifier : "N/A");
+                lvi.SubItems.Add(system.FilesLength.ToString("N0"));
                 listView1.Items.Add(lvi);
             }
         }
 
+
+        private class appFiles
+        {
+            public List<int> indexes = new List<int>();
+            public long FilesLength = 0;
+
+            public void add(int index, long length)
+            {
+                indexes.Add(index);
+                FilesLength += length;
+            }
+        }
 
         private void parseAll92(xdict di, HashSet<string> files)
         {
@@ -335,20 +359,19 @@ namespace iphonebackupbrowser
             if (!di.findKey("Applications", out sd))
                 return;
 
-            Dictionary<string, List<int>> filesByDomain = new Dictionary<string, List<int>>();
-
+            Dictionary<string, appFiles> filesByDomain = new Dictionary<string, appFiles>();
+            
             for (int i = 0; i < files92.Length; ++i)
             {
                 if ((files92[i].Mode & 0xF000) == 0x8000)
                 {
                     string d = files92[i].Domain;
-                    if (!filesByDomain.ContainsKey(d))
-                        filesByDomain.Add(d, new List<int>());
-
-                    filesByDomain[d].Add(i);
+                    if (!filesByDomain.ContainsKey(d))                    
+                        filesByDomain.Add(d, new appFiles());
+                    
+                    filesByDomain[d].add(i, files92[i].FileLength);                    
                 }
             }
-
 
 
             foreach (xdictpair p in new xdict(sd))
@@ -371,10 +394,11 @@ namespace iphonebackupbrowser
                 {
                     app.Files = new List<String>();
 
-                    foreach (int i in filesByDomain["AppDomain-" + app.Key])
+                    foreach (int i in filesByDomain["AppDomain-" + app.Key].indexes)
                     {
                         app.Files.Add(i.ToString());
                     }
+                    app.FilesLength = filesByDomain["AppDomain-" + app.Key].FilesLength;
 
                     filesByDomain.Remove("AppDomain-" + app.Key);
                 }
@@ -383,8 +407,9 @@ namespace iphonebackupbrowser
                 lvi.Tag = app;
                 lvi.Text = app.DisplayName;
                 lvi.SubItems.Add(app.Name);
-                lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString() : "N/A");
-                lvi.SubItems.Add(app.Identifier != null ? app.Identifier : "N/A");
+                lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString() : "N/A");                
+                //lvi.SubItems.Add(app.Identifier != null ? app.Identifier : "N/A");
+                lvi.SubItems.Add(app.FilesLength.ToString("N0"));
                 listView1.Items.Add(lvi);
             }
 
@@ -397,12 +422,13 @@ namespace iphonebackupbrowser
                 system.Container = "---";
                 system.Files = new List<String>();
 
-                foreach (List<int> i in filesByDomain.Values)
+                foreach (appFiles i in filesByDomain.Values)
                 {
-                    foreach (int j in i)
+                    foreach (int j in i.indexes)
                     {
                         system.Files.Add(j.ToString());
                     }
+                    system.FilesLength = i.FilesLength;
                 }
 
 
@@ -411,7 +437,8 @@ namespace iphonebackupbrowser
                 lvi.Text = system.DisplayName;
                 lvi.SubItems.Add(system.Name);
                 lvi.SubItems.Add(system.Files != null ? system.Files.Count.ToString() : "N/A");
-                lvi.SubItems.Add(system.Identifier != null ? system.Identifier : "N/A");
+                //lvi.SubItems.Add(system.Identifier != null ? system.Identifier : "N/A");
+                lvi.SubItems.Add(system.FilesLength.ToString("N0"));
                 listView1.Items.Add(lvi);
             }
         }
@@ -677,6 +704,11 @@ namespace iphonebackupbrowser
             System.Diagnostics.Process prc = new System.Diagnostics.Process();
             prc.StartInfo.FileName = backup.path;
             prc.Start();
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            LoadManifests();
         }
 
         /*
