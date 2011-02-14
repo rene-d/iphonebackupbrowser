@@ -337,7 +337,7 @@ namespace iphonebackupbrowser
             comboBox1.Items.Clear();
             listView1.Items.Clear();
             listView2.Items.Clear();
-         
+
             string s = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
             s = Path.Combine(s, "Apple Computer", "MobileSync", "Backup");
@@ -346,41 +346,7 @@ namespace iphonebackupbrowser
 
             foreach (DirectoryInfo sd in d.EnumerateDirectories())
             {
-                try
-                {
-                    string filename = Path.Combine(sd.FullName, "Info.plist");
-                    xdict dd = xdict.open(filename);
-
-                    if (dd != null)
-                    {
-                        iPhoneBackup backup = new iPhoneBackup();
-
-                        backup.path = sd.FullName;
-
-                        foreach (xdictpair p in dd)
-                        {
-                            if (p.item.GetType() == typeof(string))
-                            {
-                                switch (p.key)
-                                {
-                                    case "Device Name": backup.DeviceName = (string)p.item; break;
-                                    case "Display Name": backup.DisplayName = (string)p.item; break;
-                                    case "Last Backup Date": backup.LastBackupDate = (string)p.item; break;
-                                }
-                            }
-                        }
-
-                        backups.Add(backup);
-                    }
-                }
-                catch (InvalidOperationException ex)
-                {
-                    MessageBox.Show(ex.InnerException.ToString());
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.ToString());
-                }
+                LoadManifest(sd.FullName);            
             }
 
             foreach (iPhoneBackup b in backups)
@@ -389,6 +355,47 @@ namespace iphonebackupbrowser
             }
 
             //comboBox1.SelectedIndex = 0;
+        }
+
+
+        private void LoadManifest(string path)
+        {
+            string filename = Path.Combine(path, "Info.plist");
+
+            try
+            {
+                xdict dd = xdict.open(filename);
+
+                if (dd != null)
+                {
+                    iPhoneBackup backup = new iPhoneBackup();
+
+                    backup.path = path;
+
+                    foreach (xdictpair p in dd)
+                    {
+                        if (p.item.GetType() == typeof(string))
+                        {
+                            switch (p.key)
+                            {
+                                case "Device Name": backup.DeviceName = (string)p.item; break;
+                                case "Display Name": backup.DisplayName = (string)p.item; break;
+                                case "Last Backup Date": backup.LastBackupDate = (string)p.item; break;
+                            }
+                        }
+                    }
+
+                    backups.Add(backup);
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.InnerException.ToString());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
+            }            
         }
 
 
@@ -933,6 +940,35 @@ namespace iphonebackupbrowser
 
             string argument = @"/select, """ + Path.Combine(appsDirectory, ipa.fileName) + @"""";
             System.Diagnostics.Process.Start("explorer.exe", argument);
+        }
+
+
+        // choose a backup from a non standard directory
+        private void button3_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog fd = new OpenFileDialog();
+
+            //fd.InitialDirectory = "c:\\" ;
+            fd.Filter = "iPhone Backup (Info.plist)|Info.plist|All files (*.*)|*.*";
+            fd.FilterIndex = 1;
+            fd.RestoreDirectory = true;
+
+            if (fd.ShowDialog() == DialogResult.OK)
+            {
+                backups.Clear();
+                comboBox1.Items.Clear();
+                listView1.Items.Clear();
+                listView2.Items.Clear();
+
+                LoadManifest(Path.GetDirectoryName(fd.FileName));
+
+                foreach (iPhoneBackup b in backups)
+                {
+                    comboBox1.Items.Add(b);
+                }
+
+                comboBox1.SelectedIndex = 0;
+            }
         }
 
         
