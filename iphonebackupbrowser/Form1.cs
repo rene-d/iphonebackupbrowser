@@ -998,7 +998,7 @@ namespace iphonebackupbrowser
             {
                 using (StreamWriter fs = new StreamWriter(fd.FileName))
                 {
-                    fs.Write("Path;FileLength;ModificationTime;Domain;Key");                    
+                    fs.WriteLine("Path;FileLength;ModificationTime;Domain;Key");                    
 
                     if (manifest.Files == null)
                     {
