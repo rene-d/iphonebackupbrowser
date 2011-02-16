@@ -51,7 +51,7 @@ namespace iphonebackupbrowser
                 ColumnToSort = 0;
 
                 // Initialise l'ordre de tri sur 'aucun'
-                OrderOfSort = SortOrder.None;
+                OrderOfSort = SortOrder.Ascending;
 
                 // Initialise l'objet CaseInsensitiveComparer
                 ObjectCompare = new CaseInsensitiveComparer();
@@ -176,6 +176,8 @@ namespace iphonebackupbrowser
             listView2.Columns.Add("Date", 130);
             listView2.Columns.Add("Domain", 300);
             listView2.Columns.Add("Key", 250);
+
+            button4.Enabled = false;
 
             // Créer une instance d'une méthode de trie de la colonne ListView et l'attribuer
             // au contrôle ListView.            
@@ -337,6 +339,7 @@ namespace iphonebackupbrowser
             comboBox1.Items.Clear();
             listView1.Items.Clear();
             listView2.Items.Clear();
+            button4.Enabled = false;
 
             string s = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
@@ -663,6 +666,7 @@ namespace iphonebackupbrowser
 
             listView1.Items.Clear();
             listView2.Items.Clear();
+            button4.Enabled = false;
             manifest = null;
             files92 = null;
 
@@ -750,6 +754,7 @@ namespace iphonebackupbrowser
             iPhoneApp app = (iPhoneApp)listView1.FocusedItem.Tag;
 
             listView2.Items.Clear();
+            button4.Enabled = true;
 
             if (app.Files == null)
                 return;
@@ -968,6 +973,83 @@ namespace iphonebackupbrowser
                 }
 
                 comboBox1.SelectedIndex = 0;
+            }
+        }
+
+
+        // export the file list to a CSV file
+        private void button4_Click(object sender, EventArgs e)
+        {
+            if (listView1.FocusedItem == null) return;
+            if (listView1.FocusedItem.Tag == null) return;
+            iPhoneApp app = (iPhoneApp)listView1.FocusedItem.Tag;
+            
+            SaveFileDialog fd = new SaveFileDialog();
+
+            fd.Filter = "CSV file (*.csv)|*.csv|All files (*.*)|*.*";
+            fd.FilterIndex = 1;
+            fd.RestoreDirectory = true;
+            fd.Title = "Export the file list of '" + app.Name + "' application";
+
+            if (fd.ShowDialog() != DialogResult.OK)
+                return;
+
+            try
+            {
+                using (StreamWriter fs = new StreamWriter(fd.FileName))
+                {
+                    fs.Write("Path;FileLength;ModificationTime;Domain;Key");                    
+
+                    if (manifest.Files == null)
+                    {
+                        foreach (string f in app.Files)
+                        {
+                            mbdb.MBFileRecord x = files92[Int32.Parse(f)];
+
+                            fs.Write(x.Path);
+                            fs.Write(';');
+                            fs.Write(x.FileLength);
+                            fs.Write(';');
+                            fs.Write(x.aTime.ToString());
+                            fs.Write(';');
+                            fs.Write(x.Domain);
+                            fs.Write(';');
+                            fs.Write(x.key);
+                            fs.WriteLine();
+                        }
+                    }
+                    else
+                    {
+                        iPhoneBackup backup = (iPhoneBackup)comboBox1.SelectedItem;
+
+                        foreach (string f in app.Files)
+                        {
+                            iPhoneFile ff = manifest.Files[f];
+
+                            if (ff.Path == null)
+                            {
+                                string domain;
+                                DLL.mdinfo(Path.Combine(backup.path, f + ".mdinfo"), out domain, out ff.Path);
+                                if (ff.Path == null)
+                                    ff.Path = "N/A";
+                            }
+
+                            fs.Write(ff.Path);
+                            fs.Write(';');
+                            fs.Write(ff.FileLength);
+                            fs.Write(';');
+                            fs.Write(ff.ModificationTime);
+                            fs.Write(';');
+                            fs.Write(ff.Domain);
+                            fs.Write(';');
+                            fs.Write(ff.Key);
+                            fs.WriteLine();
+                        }                        
+                    }                    
+                }
+            }
+            finally
+            {
             }
         }
 
