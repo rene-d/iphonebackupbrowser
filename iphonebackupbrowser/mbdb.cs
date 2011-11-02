@@ -5,6 +5,8 @@ using System;
 using System.Text;
 using System.IO;
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.Security.Cryptography;
 
 
 namespace mbdbdump
@@ -106,6 +108,7 @@ namespace mbdbdump
             // or http://msdn.microsoft.com/en-us/library/8eaxk1x2.aspx
 
             string s = Encoding.UTF8.GetString(buf, 0, length);
+            //fs.ReadByte(); // Kill NULL
 
             return s.Normalize(NormalizationForm.FormC);
         }
@@ -238,29 +241,29 @@ namespace mbdbdump
         }
 
 
-        public static MBFileRecord[] ReadMBDB(string BackupPath, bool dump, bool checks)
+        public static List<MBFileRecord> ReadMBDB(string BackupPath, bool dump, bool checks)
         {
             try
             {
-                MBFileRecord[] files;
-                MBFileRecord rec = new MBFileRecord();
+                List<MBFileRecord> files;
                 byte[] signature = new byte[6];                     // buffer signature
                 byte[] buf = new byte[26];                          // buffer for .mbdx record
                 StringBuilder sb = new StringBuilder(40);           // stringbuilder for the Key
                 byte[] data = new byte[40];                         // buffer for the fixed part of .mbdb record
+                SHA1CryptoServiceProvider hasher = new SHA1CryptoServiceProvider();
 
                 System.DateTime unixEpoch = new System.DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
 
 
                 // open the index
-                FileStream mbdx = new FileStream(Path.Combine(BackupPath, "Manifest.mbdx"), FileMode.Open, FileAccess.Read);
+                FileStream mbdx = new FileStream(Path.Combine(BackupPath, "Manifest.mbdb"), FileMode.Open, FileAccess.Read);
 
                 // skip signature
                 mbdx.Read(signature, 0, 6);
-                if (BitConverter.ToString(signature, 0) != "6D-62-64-78-02-00")     // "mbdx\2\0"
-                {
-                    throw new Exception("bad .mbdx file");
-                }
+               // if (BitConverter.ToString(signature, 0) != "6D-62-64-78-02-00")     // "mbdx\2\0"
+                //{
+                //    throw new Exception("bad .mbdx file");
+                //}
 
 
                 // open the database
@@ -273,38 +276,39 @@ namespace mbdbdump
                     throw new Exception("bad .mbdb file");
                 }
 
-                // number of records in .mbdx
-                if (mbdx.Read(buf, 0, 4) != 4)
-                {
-                    throw new Exception("altered .mbdx file");
-                }
-                int records = BigEndianBitConverter.ToInt32(buf, 0);
-                files = new MBFileRecord[records];
+                //// number of records in .mbdx
+                //if (mbdx.Read(buf, 0, 4) != 4)
+                //{
+                //    throw new Exception("altered .mbdx file");
+                //}
+                //int records = BigEndianBitConverter.ToInt32(buf, 0);
+                files = new List<MBFileRecord>();
 
                 // loop through the records
-                for (int i = 0; i < records; ++i)
+                for (int i = 0; mbdb.Position < mbdb.Length ; ++i)
                 {
-                    // get the fixed size .mbdx record
-                    if (mbdx.Read(buf, 0, 26) != 26)
-                        break;
+                    MBFileRecord rec = new MBFileRecord();
+                    //// get the fixed size .mbdx record
+                    //if (mbdx.Read(buf, 0, 26) != 26)
+                    //    break;
 
                     // convert key to text, it's the filename in the backup directory
                     // in previous versions of iTunes, it was the file part of .mddata/.mdinfo
-                    sb.Clear();
-                    for (int j = 0; j < 20; ++j)
-                    {
-                        byte b = buf[j];
-                        sb.Append(toHexLow(b >> 4));
-                        sb.Append(toHexLow(b & 15));
-                    }
+                    //sb.Clear();
+                    //for (int j = 0; j < 20; ++j)
+                    //{
+                    //    byte b = buf[j];
+                    //    sb.Append(toHexLow(b >> 4));
+                    //    sb.Append(toHexLow(b & 15));
+                    //}
 
-                    rec.key = sb.ToString();
-                    rec.offset = BigEndianBitConverter.ToInt32(buf, 20);
-                    rec.Mode = BigEndianBitConverter.ToUInt16(buf, 24);
+                    //rec.key = sb.ToString();
+                    //rec.offset = BigEndianBitConverter.ToInt32(buf, 20);
+                    //rec.Mode = BigEndianBitConverter.ToUInt16(buf, 24);
 
 
                     // read the record in the .mbdb
-                    mbdb.Seek(6 + rec.offset, SeekOrigin.Begin);
+                    //mbdb.Seek(6 + rec.offset, SeekOrigin.Begin);
 
                     rec.Domain = getS(mbdb);
                     rec.Path = getS(mbdb);
@@ -316,7 +320,7 @@ namespace mbdbdump
 
                     rec.data = toHex(data, 2, 4, 4, 4, 4, 4, 4, 4, 8, 1, 1);
 
-                    //rec.ModeBis = BigEndianBitConverter.ToUInt16(data, 0);
+                    rec.Mode = BigEndianBitConverter.ToUInt16(data, 0);
                     rec.alwaysZero = BigEndianBitConverter.ToInt32(data, 2);
                     rec.unknown = BigEndianBitConverter.ToInt32(data, 6);
                     rec.UserId = BigEndianBitConverter.ToInt32(data, 10);       // or maybe GroupId (don't care...)
@@ -338,7 +342,16 @@ namespace mbdbdump
                         rec.Properties[j].Value = getD(mbdb);
                     }
 
-                    files[i] = rec;
+                    StringBuilder fileName = new StringBuilder();
+                    byte[] fb = hasher.ComputeHash(ASCIIEncoding.UTF8.GetBytes(rec.Domain + "-" + rec.Path));
+                    for (int k = 0; k < fb.Length; k++)
+                    {
+                        fileName.Append(fb[k].ToString("x2"));
+                    }
+
+                    rec.key = fileName.ToString();
+
+                    files.Add(rec);
 
 
                     // debug print
@@ -389,7 +402,7 @@ namespace mbdbdump
                         if (rec.FileLength != 0) Debug.Assert((rec.Mode & 0xF000) == 0x8000);
                         if ((rec.Mode & 0xF000) == 0x8000) Debug.Assert(rec.flag != 0);
                         if ((rec.Mode & 0xF000) == 0xA000) Debug.Assert(rec.flag == 0 && rec.FileLength == 0);
-                        if ((rec.Mode & 0xF000) == 0x4000) Debug.Assert(rec.flag == 0 && rec.FileLength == 0);
+                        if ((rec.Mode & 0xF000) == 0x4000) Debug.Assert(/*rec.flag == 0 &&*/ rec.FileLength == 0);
                     }
 
                 }

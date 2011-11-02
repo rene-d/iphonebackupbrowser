@@ -149,7 +149,7 @@ namespace iphonebackupbrowser
 
         private List<iPhoneBackup> backups = new List<iPhoneBackup>();
         private iPhoneManifestData manifest;
-        private mbdb.MBFileRecord[] files92;
+        private List<mbdb.MBFileRecord> files92;
 
         string appsDirectory;
         private Dictionary<string, iPhoneIPA> appsCatalog;
@@ -543,7 +543,7 @@ namespace iphonebackupbrowser
 
             Dictionary<string, appFiles> filesByDomain = new Dictionary<string, appFiles>();
             
-            for (int i = 0; i < files92.Length; ++i)
+            for (int i = 0; i < files92.Count; ++i)
             {
                 if ((files92[i].Mode & 0xF000) == 0x8000)
                 {
