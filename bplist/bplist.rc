@@ -2,8 +2,8 @@
 
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION    	1,0,0,0
-PRODUCTVERSION 	1,0,0,0
+FILEVERSION    	1,1,0,0
+PRODUCTVERSION 	1,1,0,0
 FILEFLAGSMASK  	VS_FFI_FILEFLAGSMASK
 #ifndef DEBUG
 FILEFLAGS      	0
@@ -25,7 +25,7 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "René DEVICHI"
             VALUE "FileDescription",  "bplist reader"
-            VALUE "FileVersion",      "1.0"
+            VALUE "FileVersion",      "1.1"
             VALUE "InternalName",     "bplist"
             VALUE "LegalCopyright",   "René DEVICHI"
             VALUE "LegalTrademarks1", ""
@@ -36,7 +36,7 @@ BEGIN
             VALUE "OriginalFilename", "bplist.dll"
 #endif
             VALUE "ProductName",      "bplist reader"
-            VALUE "ProductVersion",   "1.0"
+            VALUE "ProductVersion",   "1.1"
         END
     END
 

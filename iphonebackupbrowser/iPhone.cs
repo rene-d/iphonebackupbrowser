@@ -8,6 +8,9 @@ using System.Runtime.InteropServices;
 namespace iphonebackupbrowser
 {
 
+    //
+    // the C++ service DLL
+    //
     class DLL
     {
         [DllImport("bplist.dll", EntryPoint = "bplist2xml_buffer", CallingConvention = CallingConvention.StdCall)]
@@ -19,10 +22,13 @@ namespace iphonebackupbrowser
         [DllImport("bplist.dll", EntryPoint = "mdinfo", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
         public static extern int mdinfo(string filename, out string Domain, out string Path);
 
-        // en C#, string et byte[] ne représentent pas la même chose: il y a la notion d'encoding dans une string,
+        [DllImport("ibbsearch.dll", EntryPoint = "search", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        public static extern void search(string filename, string pattern, out string results);
+
+        // En C#, string et byte[] ne représentent pas la même chose: il y a la notion d'encoding dans une string,
         // (c'est forcément de l'Unicode), même marshalée depuis const char* d'une DLL non managée, qui est forcément
-        // de l'ANSI
-        // et ce n'est pas plus mal comme ainsi !
+        // de l'ANSI.
+        // Et ce n'est pas plus mal ainsi !
         public static int bplist2xml(byte[] ptr, int len, out byte[] xml, bool useOpenStepEpoch)
         {
             int xml_size;
@@ -68,17 +74,31 @@ namespace iphonebackupbrowser
     }
 
 
+    //
+    // backup information retrieved from Info.plist
+    //
     class iPhoneBackup
     {
         public string DeviceName;
         public string DisplayName;
-        public string LastBackupDate;
+        public DateTime LastBackupDate;     // originally a string
 
-        public string path;                 // chemin du backup
+        public string path;                 // backup path
 
         public override string ToString()
         {
-            return DisplayName + " (" + LastBackupDate + ")";
+            string str = DisplayName + " (" + LastBackupDate + ")";
+            if (custom) str = str + " *";
+            return str;
+        }
+
+        public bool custom = false;         // backup loaded from a custom directory
+        public int index;                   // index in the combobox control
+
+        // delegate to sort backups (newer first)
+        public static int SortByDate(iPhoneBackup a, iPhoneBackup b)
+        {
+            return b.LastBackupDate.CompareTo(a.LastBackupDate);
         }
     };
 

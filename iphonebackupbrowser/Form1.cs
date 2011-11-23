@@ -18,6 +18,7 @@ using System.Threading;
 
 using mbdbdump;
 
+
 namespace iphonebackupbrowser
 {
     public partial class Form1 : Form
@@ -68,6 +69,9 @@ namespace iphonebackupbrowser
             public int Compare(object x, object y)
             {
                 int compareResult;
+
+                if (((ListViewItem)x).SubItems.Count <= ColumnToSort)
+                    return 0;
                 
                 // Envoie les objets à comparer aux objets ListViewItem                
                 ListViewItem.ListViewSubItem siX = ((ListViewItem)x).SubItems[ColumnToSort];
@@ -148,13 +152,21 @@ namespace iphonebackupbrowser
 
 
         private List<iPhoneBackup> backups = new List<iPhoneBackup>();
+
+        // manifest data of old backups
         private iPhoneManifestData manifest;
+
+        // file list for new backups
         private List<mbdb.MBFileRecord> files92;
 
-        string appsDirectory;
+        // apps from iTunes
+        private string appsDirectory;
         private Dictionary<string, iPhoneIPA> appsCatalog;
 
         private ListViewColumnSorter lvwColumnSorter1, lvwColumnSorter2;
+
+        // the current displayed backup
+        private iPhoneBackup currentBackup = null;
 
 
         public Form1()
@@ -165,6 +177,10 @@ namespace iphonebackupbrowser
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            this.toolStrip2.Location = new System.Drawing.Point(0, 0);
+            this.toolStrip1.Location = new System.Drawing.Point(0, 0);
+            
+            
             listView1.Columns.Add("Display Name", 200);
             listView1.Columns.Add("Name", 200);
             listView1.Columns.Add("Files", 50, HorizontalAlignment.Right);
@@ -177,8 +193,8 @@ namespace iphonebackupbrowser
             listView2.Columns.Add("Domain", 300);
             listView2.Columns.Add("Key", 250);
 
-            button4.Enabled = false;
-
+            buttonCSVExport.Enabled = false;
+            
             // Créer une instance d'une méthode de trie de la colonne ListView et l'attribuer
             // au contrôle ListView.            
             lvwColumnSorter1 = new ListViewColumnSorter();
@@ -199,6 +215,11 @@ namespace iphonebackupbrowser
             backgroundWorker1.WorkerSupportsCancellation = true;
 
             backgroundWorker1.RunWorkerAsync();
+
+            toolStripButton2.Enabled = false;
+
+            searchComboBox.Visible = false;
+            toolStripButton2.Visible = false;
         }
 
 
@@ -222,7 +243,7 @@ namespace iphonebackupbrowser
             backgroundWorker1 = null;
 
             if (comboBox1.SelectedIndex != -1)
-                comboBox1_SelectedIndexChanged(null, null);
+                loadCurrentBackup();
         }
 
         // This event handler updates the progress bar.
@@ -332,15 +353,15 @@ namespace iphonebackupbrowser
             this.appsDirectory = appsDirectory;
         }
 
-
+        
         private void LoadManifests()
         {
             backups.Clear();
             comboBox1.Items.Clear();
             listView1.Items.Clear();
             listView2.Items.Clear();
-            button4.Enabled = false;
-
+            buttonCSVExport.Enabled = false;
+            
             string s = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
             s = Path.Combine(s, "Apple Computer", "MobileSync", "Backup");
@@ -354,15 +375,17 @@ namespace iphonebackupbrowser
 
             foreach (iPhoneBackup b in backups)
             {
-                comboBox1.Items.Add(b);
+                b.index = comboBox1.Items.Add(b);
             }
 
-            //comboBox1.SelectedIndex = 0;
+            comboBox1.Items.Add("<Open from a custom directory>");            
         }
 
 
-        private void LoadManifest(string path)
+        private iPhoneBackup LoadManifest(string path)
         {
+            iPhoneBackup backup = null;
+
             string filename = Path.Combine(path, "Info.plist");
 
             try
@@ -371,7 +394,7 @@ namespace iphonebackupbrowser
 
                 if (dd != null)
                 {
-                    iPhoneBackup backup = new iPhoneBackup();
+                    backup = new iPhoneBackup();
 
                     backup.path = path;
 
@@ -383,12 +406,15 @@ namespace iphonebackupbrowser
                             {
                                 case "Device Name": backup.DeviceName = (string)p.item; break;
                                 case "Display Name": backup.DisplayName = (string)p.item; break;
-                                case "Last Backup Date": backup.LastBackupDate = (string)p.item; break;
+                                case "Last Backup Date":                                    
+                                    DateTime.TryParse((string)p.item, out backup.LastBackupDate);
+                                    break;
                             }
                         }
                     }
 
                     backups.Add(backup);
+                    backups.Sort(iPhoneBackup.SortByDate);
                 }
             }
             catch (InvalidOperationException ex)
@@ -398,7 +424,9 @@ namespace iphonebackupbrowser
             catch (Exception ex)
             {
                 MessageBox.Show(ex.ToString());
-            }            
+            }
+
+            return backup;
         }
 
 
@@ -534,11 +562,36 @@ namespace iphonebackupbrowser
             }
         }
 
-        private void parseAll92(xdict di, HashSet<string> files)
+
+        private void addApp(iPhoneApp app)
+        {
+            iPhoneIPA ipa = null;
+            if (appsCatalog != null)
+            {
+                appsCatalog.TryGetValue(app.Identifier, out ipa);
+            }
+
+            ListViewItem lvi = new ListViewItem();
+            lvi.Tag = app;
+            lvi.Text = app.DisplayName;
+            lvi.SubItems.Add(ipa != null ? ipa.itemName : app.Name);
+            lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString("N0") : "N/A");
+            lvi.SubItems.Add(app.FilesLength.ToString("N0"));
+            lvi.SubItems.Add(ipa != null ? ipa.totalSize.ToString("N0") : "");
+
+            lvi.SubItems[2].Tag = (long)(app.Files != null ? app.Files.Count : 0);
+            lvi.SubItems[3].Tag = (long)app.FilesLength;
+            lvi.SubItems[4].Tag = (long)(ipa != null ? ipa.totalSize : 0);
+
+            listView1.Items.Add(lvi);
+        }
+
+
+        private void parseAll92(xdict mbdb)
         {
             dict sd;
 
-            if (!di.findKey("Applications", out sd))
+            if (!mbdb.findKey("Applications", out sd))
                 return;
 
             Dictionary<string, appFiles> filesByDomain = new Dictionary<string, appFiles>();
@@ -585,30 +638,13 @@ namespace iphonebackupbrowser
                     filesByDomain.Remove("AppDomain-" + app.Key);
                 }
 
-                iPhoneIPA ipa = null;
-                if (appsCatalog != null)
-                {
-                    appsCatalog.TryGetValue(app.Identifier, out ipa);
-                }
-
-                ListViewItem lvi = new ListViewItem();
-                lvi.Tag = app;
-                lvi.Text = app.DisplayName;
-                lvi.SubItems.Add(ipa != null ? ipa.itemName : app.Name);
-                lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString("N0") : "N/A");
-                lvi.SubItems.Add(app.FilesLength.ToString("N0"));
-                lvi.SubItems.Add(ipa != null ? ipa.totalSize.ToString("N0") : "");
-
-                lvi.SubItems[2].Tag = (long)(app.Files != null ? app.Files.Count : 0);
-                lvi.SubItems[3].Tag = (long)app.FilesLength;
-                lvi.SubItems[4].Tag = (long)(ipa != null ? ipa.totalSize : 0);
-
-                listView1.Items.Add(lvi);
+                addApp(app);
             }
 
 
             {
                 iPhoneApp system = new iPhoneApp();
+
                 system.Name = "System";
                 system.DisplayName = "---";
                 system.Identifier = "---";
@@ -625,6 +661,9 @@ namespace iphonebackupbrowser
                 }
 
 
+                addApp(system);
+
+                /*
                 ListViewItem lvi = new ListViewItem();
                 lvi.Tag = system;
                 lvi.Text = system.DisplayName;
@@ -638,47 +677,32 @@ namespace iphonebackupbrowser
                 lvi.SubItems[4].Tag = (long)0;
 
                 listView1.Items.Add(lvi);
+                */
             }
         }
 
 
-        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        private void loadCurrentBackup()
         {
+            if (currentBackup == null)
+                return;
 
-            /**
-            try
-            {
-                iPhoneBackup backup = (iPhoneBackup)comboBox1.SelectedItem;
-
-                foreach (FileInfo sd in new DirectoryInfo(backup.path).EnumerateFiles("*.mdinfo"))
-                {
-                    //string Domain, Path;
-
-                    //DLL_mdinfo(sd.FullName, out Domain, out Path);
-                    //Debug.WriteLine("{0} {1}", Domain, Path);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.ToString());
-            }
-            **/
+            button1.ToolTipText = currentBackup.path;
 
             listView1.Items.Clear();
             listView2.Items.Clear();
-            button4.Enabled = false;
+            buttonCSVExport.Enabled = false;
             manifest = null;
             files92 = null;
 
-
             try
             {
-                iPhoneBackup backup = (iPhoneBackup)comboBox1.SelectedItem;
+                iPhoneBackup backup = currentBackup;
 
                 // backup iTunes 9.2+
                 if (File.Exists(Path.Combine(backup.path, "Manifest.mbdb")))
                 {
-                    files92 = mbdbdump.mbdb.ReadMBDB(backup.path, false, true);
+                    files92 = mbdbdump.mbdb.ReadMBDB(backup.path);
 
                     byte[] xml;
                     DLL.bplist2xml(Path.Combine(backup.path, "Manifest.plist"), out xml, false);
@@ -691,11 +715,7 @@ namespace iphonebackupbrowser
 
                             if (dd != null)
                             {
-                                manifest = new iPhoneManifestData();
-
-                                HashSet<string> files = new HashSet<string>();
-
-                                parseAll92(dd, files);
+                                parseAll92(dd);
                             }
                         }
 
@@ -754,7 +774,7 @@ namespace iphonebackupbrowser
             iPhoneApp app = (iPhoneApp)listView1.FocusedItem.Tag;
 
             listView2.Items.Clear();
-            button4.Enabled = true;
+            buttonCSVExport.Enabled = true;
 
             if (app.Files == null)
                 return;
@@ -771,7 +791,7 @@ namespace iphonebackupbrowser
                 {
                     iPhoneFile ff;
 
-                    if (manifest.Files == null)
+                    if (manifest == null)
                     {
                         ff = new iPhoneFile();
 
@@ -788,7 +808,7 @@ namespace iphonebackupbrowser
                         //Debug.WriteLine("{0} {1}", f, "");
                         ff = manifest.Files[f];
 
-                        iPhoneBackup backup = (iPhoneBackup)comboBox1.SelectedItem;
+                        iPhoneBackup backup = currentBackup;
 
                         if (ff.Path == null)
                         {
@@ -826,7 +846,7 @@ namespace iphonebackupbrowser
 
         private void listView2_DoubleClick(object sender, EventArgs e)
         {
-            iPhoneBackup backup = (iPhoneBackup)comboBox1.SelectedItem;
+            iPhoneBackup backup = currentBackup;
             iPhoneFile file = (iPhoneFile)listView2.FocusedItem.Tag;
 
             string ext = "";
@@ -900,7 +920,7 @@ namespace iphonebackupbrowser
             string ext = "";
             if (files92 == null) ext = ".mddata";
 
-            iPhoneBackup backup = (iPhoneBackup)comboBox1.SelectedItem;
+            iPhoneBackup backup = currentBackup;
 
             int k = 0;
             filenames = new string[listView2.SelectedItems.Count];
@@ -914,23 +934,17 @@ namespace iphonebackupbrowser
         }
 
 
+        // ouvre le répertoire du backup dans l'explorer
         private void button1_Click(object sender, EventArgs e)
         {
-            iPhoneBackup backup = (iPhoneBackup)comboBox1.SelectedItem;
-
-            if (backup == null)
+            if (currentBackup == null)
                 return;
 
             System.Diagnostics.Process prc = new System.Diagnostics.Process();
-            prc.StartInfo.FileName = backup.path;
+            prc.StartInfo.FileName = currentBackup.path;
             prc.Start();
         }
 
-
-        private void button2_Click(object sender, EventArgs e)
-        {
-            LoadManifests();
-        }
 
 
         private void listView1_DoubleClick(object sender, EventArgs e)
@@ -939,6 +953,9 @@ namespace iphonebackupbrowser
 
             if (app == null) return;
             if (appsCatalog == null) return;
+
+            if (appsCatalog == null)
+                return;
 
             iPhoneIPA ipa;
             if (!appsCatalog.TryGetValue(app.Identifier, out ipa))
@@ -949,37 +966,9 @@ namespace iphonebackupbrowser
         }
 
 
-        // choose a backup from a non standard directory
-        private void button3_Click(object sender, EventArgs e)
-        {
-            OpenFileDialog fd = new OpenFileDialog();
-
-            //fd.InitialDirectory = "c:\\" ;
-            fd.Filter = "iPhone Backup (Info.plist)|Info.plist|All files (*.*)|*.*";
-            fd.FilterIndex = 1;
-            fd.RestoreDirectory = true;
-
-            if (fd.ShowDialog() == DialogResult.OK)
-            {
-                backups.Clear();
-                comboBox1.Items.Clear();
-                listView1.Items.Clear();
-                listView2.Items.Clear();
-
-                LoadManifest(Path.GetDirectoryName(fd.FileName));
-
-                foreach (iPhoneBackup b in backups)
-                {
-                    comboBox1.Items.Add(b);
-                }
-
-                comboBox1.SelectedIndex = 0;
-            }
-        }
-
 
         // export the file list to a CSV file
-        private void button4_Click(object sender, EventArgs e)
+        private void toolStripButton1_Click(object sender, EventArgs e)
         {
             if (listView1.FocusedItem == null) return;
             if (listView1.FocusedItem.Tag == null) return;
@@ -1021,7 +1010,7 @@ namespace iphonebackupbrowser
                     }
                     else
                     {
-                        iPhoneBackup backup = (iPhoneBackup)comboBox1.SelectedItem;
+                        iPhoneBackup backup = currentBackup;
 
                         foreach (string f in app.Files)
                         {
@@ -1054,18 +1043,85 @@ namespace iphonebackupbrowser
             }
         }
 
-        
-        /*
-        private void listView2_MouseDown(object sender, MouseEventArgs e)
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (e.Button == MouseButtons.Right)
+            if (comboBox1.SelectedIndex == -1)
+                return;
+
+            if (comboBox1.SelectedItem.GetType() == typeof(iPhoneBackup))
             {
-                Peter.ShellContextMenu ctxMnu = new Peter.ShellContextMenu();
-                FileInfo[] arrFI = new FileInfo[1];
-                arrFI[0] = new FileInfo(@"c:\temp\a.xml");
-                ctxMnu.ShowContextMenu(arrFI, this.PointToScreen(new Point(e.X, e.Y)));
+                if (currentBackup == null || currentBackup.index != comboBox1.SelectedIndex)
+                {
+                    currentBackup = (iPhoneBackup)comboBox1.SelectedItem;
+                    loadCurrentBackup();
+                }
+                return;
+            }
+
+
+            // choose a backup from a non standard directory
+
+            OpenFileDialog fd = new OpenFileDialog();
+
+            //fd.InitialDirectory = "C:\\" ;
+            fd.Filter = "iPhone Backup|Info.plist|All files (*.*)|*.*";
+            fd.FilterIndex = 1;
+            fd.RestoreDirectory = true;
+            
+            if (fd.ShowDialog() == DialogResult.OK)
+            {
+                //backups.Clear();
+                //comboBox1.Items.Clear();
+                //listView1.Items.Clear();
+                //listView2.Items.Clear();
+
+                iPhoneBackup b = LoadManifest(Path.GetDirectoryName(fd.FileName));
+
+                if (b != null)
+                {
+                    b.custom = true;
+
+                    comboBox1.Items.Insert(comboBox1.Items.Count - 1, b);
+
+                    b.index = comboBox1.Items.Count - 2;
+
+                    comboBox1.SelectedIndex = b.index;
+                }
+            }
+
+            if (comboBox1.SelectedIndex == comboBox1.Items.Count - 1)
+            {
+                if (currentBackup != null) 
+                    comboBox1.SelectedIndex = currentBackup.index;                
+                else
+                    comboBox1.SelectedIndex = -1;                
             }
         }
-        */
+
+        private void toolStripButton2_Click(object sender, EventArgs e)
+        {            
+            MessageBox.Show(searchComboBox.Text);
+
+            SearchForm dlg = new SearchForm();
+
+            dlg.ShowDialog(this);
+        }
+
+        private void toolStripButton1_Click_1(object sender, EventArgs e)
+        {
+            (new AboutBox1()).ShowDialog(this);
+        }
+
+        private void searchComboBox_TextUpdate(object sender, EventArgs e)
+        {
+            toolStripButton2.Enabled = searchComboBox.Text != "";
+        }
+
+        private void toolStripButton3_Click(object sender, EventArgs e)
+        {
+            LoadManifests();
+        }
+
     }
 }

@@ -1,10 +1,9 @@
-// MBDB/MBDX decoder
-// René DEVICHI 2010
+// Manifest.mbdb decoder
+// René DEVICHI 2010-2011
 
 using System;
 using System.Text;
 using System.IO;
-using System.Diagnostics;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 
@@ -94,7 +93,7 @@ namespace mbdbdump
             int b1 = fs.ReadByte();
 
             if (b0 == 255 && b1 == 255)
-                return "n/a";
+                return null;
 
             int length = b0 * 256 + b1;
 
@@ -108,7 +107,6 @@ namespace mbdbdump
             // or http://msdn.microsoft.com/en-us/library/8eaxk1x2.aspx
 
             string s = Encoding.UTF8.GetString(buf, 0, length);
-            //fs.ReadByte(); // Kill NULL
 
             return s.Normalize(NormalizationForm.FormC);
         }
@@ -174,7 +172,7 @@ namespace mbdbdump
             int b1 = fs.ReadByte();
 
             if (b0 == 255 && b1 == 255)
-                return "n/a";
+                return null;
 
             int length = b0 * 256 + b1;
 
@@ -206,30 +204,26 @@ namespace mbdbdump
 
         public struct MBFileRecord
         {
-            // from .mbdx
-            public string key;              // filename if the directory
-            public int offset;              // offset of record in the .mbdb file
-            public ushort Mode;             // 4xxx=dir, 8xxx=file, Axxx=symlink
+            public string key;              // filename in the backup directory: SHA.1 of Domain + "-" + Path
 
-            // from .mbdb
             public string Domain;
             public string Path;
             public string LinkTarget;
             public string DataHash;         // SHA.1 for 'important' files
-            public string alwaysNA;
+            public string alwaysNull;
 
             public string data;             // the 40-byte block (some fields still need to be explained)
 
-            //public ushort ModeBis;        // same as .mbdx field
+            public ushort Mode;             // 4xxx=dir, 8xxx=file, Axxx=symlink
             public int alwaysZero;
-            public int unknown;
-            public int UserId;
-            public int GroupId;
+            public uint inode;              // without any doubt
+            public uint UserId;             // 501/501 for apps
+            public uint GroupId;
             public DateTime aTime;          // aTime or bTime is the former ModificationTime
             public DateTime bTime;
             public DateTime cTime;
             public long FileLength;         // always 0 for link or directory
-            public byte flag;               // 0 if special (link, directory), otherwise values unknown
+            public byte flag;               // 0 for link, 4 for directory, otherwise values unknown (4 3 1)
             public byte PropertyCount;
 
             public struct Property
@@ -241,7 +235,7 @@ namespace mbdbdump
         }
 
 
-        public static List<MBFileRecord> ReadMBDB(string BackupPath, bool dump, bool checks)
+        public static List<MBFileRecord> ReadMBDB(string BackupPath)
         {
             try
             {
@@ -255,17 +249,6 @@ namespace mbdbdump
                 System.DateTime unixEpoch = new System.DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
 
 
-                // open the index
-                FileStream mbdx = new FileStream(Path.Combine(BackupPath, "Manifest.mbdb"), FileMode.Open, FileAccess.Read);
-
-                // skip signature
-                mbdx.Read(signature, 0, 6);
-               // if (BitConverter.ToString(signature, 0) != "6D-62-64-78-02-00")     // "mbdx\2\0"
-                //{
-                //    throw new Exception("bad .mbdx file");
-                //}
-
-
                 // open the database
                 FileStream mbdb = new FileStream(Path.Combine(BackupPath, "Manifest.mbdb"), FileMode.Open, FileAccess.Read);
 
@@ -276,45 +259,18 @@ namespace mbdbdump
                     throw new Exception("bad .mbdb file");
                 }
 
-                //// number of records in .mbdx
-                //if (mbdx.Read(buf, 0, 4) != 4)
-                //{
-                //    throw new Exception("altered .mbdx file");
-                //}
-                //int records = BigEndianBitConverter.ToInt32(buf, 0);
                 files = new List<MBFileRecord>();
 
                 // loop through the records
                 for (int i = 0; mbdb.Position < mbdb.Length ; ++i)
                 {
                     MBFileRecord rec = new MBFileRecord();
-                    //// get the fixed size .mbdx record
-                    //if (mbdx.Read(buf, 0, 26) != 26)
-                    //    break;
-
-                    // convert key to text, it's the filename in the backup directory
-                    // in previous versions of iTunes, it was the file part of .mddata/.mdinfo
-                    //sb.Clear();
-                    //for (int j = 0; j < 20; ++j)
-                    //{
-                    //    byte b = buf[j];
-                    //    sb.Append(toHexLow(b >> 4));
-                    //    sb.Append(toHexLow(b & 15));
-                    //}
-
-                    //rec.key = sb.ToString();
-                    //rec.offset = BigEndianBitConverter.ToInt32(buf, 20);
-                    //rec.Mode = BigEndianBitConverter.ToUInt16(buf, 24);
-
-
-                    // read the record in the .mbdb
-                    //mbdb.Seek(6 + rec.offset, SeekOrigin.Begin);
 
                     rec.Domain = getS(mbdb);
                     rec.Path = getS(mbdb);
                     rec.LinkTarget = getS(mbdb);
                     rec.DataHash = getD(mbdb);
-                    rec.alwaysNA = getD(mbdb);
+                    rec.alwaysNull = getD(mbdb);
 
                     mbdb.Read(data, 0, 40);
 
@@ -322,9 +278,9 @@ namespace mbdbdump
 
                     rec.Mode = BigEndianBitConverter.ToUInt16(data, 0);
                     rec.alwaysZero = BigEndianBitConverter.ToInt32(data, 2);
-                    rec.unknown = BigEndianBitConverter.ToInt32(data, 6);
-                    rec.UserId = BigEndianBitConverter.ToInt32(data, 10);       // or maybe GroupId (don't care...)
-                    rec.GroupId = BigEndianBitConverter.ToInt32(data, 14);      // or maybe UserId
+                    rec.inode = BigEndianBitConverter.ToUInt32(data, 6);
+                    rec.UserId = BigEndianBitConverter.ToUInt32(data, 10);      // or maybe GroupId (don't care...)
+                    rec.GroupId = BigEndianBitConverter.ToUInt32(data, 14);     // or maybe UserId
 
                     rec.aTime = unixEpoch.AddSeconds(BigEndianBitConverter.ToUInt32(data, 18));
                     rec.bTime = unixEpoch.AddSeconds(BigEndianBitConverter.ToUInt32(data, 22));
@@ -352,59 +308,6 @@ namespace mbdbdump
                     rec.key = fileName.ToString();
 
                     files.Add(rec);
-
-
-                    // debug print
-                    if (dump)
-                    {
-                        Console.WriteLine("");
-                        Console.WriteLine("record {0} (mbdb offset {1})", i, rec.offset + 6);
-
-                        Console.WriteLine("  key    {0}", rec.key);
-                        Console.WriteLine("  domain {0}", rec.Domain);
-                        Console.WriteLine("  path   {0}", rec.Path);
-                        if (rec.LinkTarget != "n/a") Console.WriteLine("  target {0}", rec.LinkTarget);
-                        if (rec.DataHash != "n/a") Console.WriteLine("  hash   {0}", rec.DataHash);
-                        if (rec.alwaysNA != "n/a") Console.WriteLine("  unk3   {0}", rec.alwaysNA);
-
-                        string l = "?";
-                        switch ((rec.Mode & 0xF000) >> 12)
-                        {
-                            case 0xA: l = "link"; break;
-                            case 0x4: l = "dir"; break;
-                            case 0x8: l = "file"; break;
-                        }
-                        Console.WriteLine("  mode   {1} ({0})", rec.Mode & 0xFFF, l);
-
-                        Console.WriteLine("  time   {0}", rec.aTime);
-
-                        // length is unsignificant if link or dir
-                        if ((rec.Mode & 0xF000) == 0x8000) Console.WriteLine("  length {0}", rec.FileLength);
-
-                        Console.WriteLine("  data   {0}", rec.data);
-                        for (int j = 0; j < rec.PropertyCount; ++j)
-                        {
-                            Console.WriteLine("  pn[{0}]  {1}", j, rec.Properties[j].Name);
-                            Console.WriteLine("  pv[{0}]  {1}", j, rec.Properties[j].Value);
-                        }
-                    }
-
-
-                    // some assertions...
-                    if (checks)
-                    {
-                        //Debug.Assert(rec.Mode == rec.ModeBis);
-                        Debug.Assert(rec.alwaysZero == 0);
-                        if (rec.LinkTarget != "n/a") Debug.Assert((rec.Mode & 0xF000) == 0xA000);
-                        if (rec.DataHash != "n/a") Debug.Assert(rec.DataHash.Length == 40);
-                        Debug.Assert(rec.alwaysNA == "n/a");
-                        if (rec.Domain.StartsWith("AppDomain-")) Debug.Assert(rec.GroupId == 501 && rec.UserId == 501);
-                        if (rec.FileLength != 0) Debug.Assert((rec.Mode & 0xF000) == 0x8000);
-                        if ((rec.Mode & 0xF000) == 0x8000) Debug.Assert(rec.flag != 0);
-                        if ((rec.Mode & 0xF000) == 0xA000) Debug.Assert(rec.flag == 0 && rec.FileLength == 0);
-                        if ((rec.Mode & 0xF000) == 0x4000) Debug.Assert(/*rec.flag == 0 &&*/ rec.FileLength == 0);
-                    }
-
                 }
 
                 return files;

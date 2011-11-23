@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 
+#include "bplist.h"
 
 #include "base64.h"
 #include "prop.h"
@@ -643,7 +644,7 @@ int analyse_mdinfo(const wchar_t *mdinfo, void *)
 }
 
 
-struct mdinfo
+struct mdinfo_t
 {
 	std::wstring Domain;
 	std::wstring Path;
@@ -654,7 +655,7 @@ struct mdinfo
 
 int analyse_mdinfo2(const wchar_t *path, void *ptr)
 {
-	std::list<mdinfo>& infos = *static_cast<std::list<mdinfo> *>(ptr);
+	std::list<mdinfo_t>& infos = *static_cast<std::list<mdinfo_t> *>(ptr);
 
 	BPListReader r;
 
@@ -674,7 +675,7 @@ int analyse_mdinfo2(const wchar_t *path, void *ptr)
 
 			prop Metadata = rr.getRootObject();
 
-			mdinfo mi;
+			mdinfo_t mi;
 
 			mi.Domain = Metadata.select("Domain").toString();
 			mi.Path   = Metadata.select("Path").toString();
@@ -992,7 +993,7 @@ static void copy(char **& out, const std::string& in)
 }
 
 
-extern "C" __declspec(dllexport)
+BPLIST_API
 int __stdcall mdinfo(const wchar_t *filename, wchar_t **Domain, wchar_t **Path)
 {
 	BPListReader r;
@@ -1022,15 +1023,20 @@ int __stdcall mdinfo(const wchar_t *filename, wchar_t **Domain, wchar_t **Path)
 }
 
 
-extern "C" __declspec(dllexport)
-int __stdcall  bplist2xml_buffer(const char *byteArray, size_t length, char **xml, bool useOpenStepEpoch)
+BPLIST_API
+int __stdcall  bplist2xml_buffer2(const char *byteArray, size_t length, char **xml, unsigned long flags)
 {
 	BPListReader r;
 
 	stringbuilder ss;
 
 	if (r.open(byteArray, length)) {
-		r.getRootObject().toXmlDoc(ss, false, false, useOpenStepEpoch);
+		
+		bool pretty           = (flags & 1) != 0;
+		bool includeDTD       = (flags & 2) != 0;
+		bool useOpenStepEpoch = (flags & 4) != 0;
+
+		r.getRootObject().toXmlDoc(ss, pretty, includeDTD, useOpenStepEpoch);
 	}
 
 	copy(xml, ss.str());
@@ -1039,15 +1045,20 @@ int __stdcall  bplist2xml_buffer(const char *byteArray, size_t length, char **xm
 }
 
 
-extern "C" __declspec(dllexport)
-int __stdcall  bplist2xml_file(const wchar_t *filename, char **xml, bool useOpenStepEpoch)
+BPLIST_API
+int __stdcall  bplist2xml_file2(const wchar_t *filename, char **xml, unsigned long flags)
 {
 	BPListReader r;
 
 	stringbuilder ss;
 
 	if (r.open(filename)) {
-		r.getRootObject().toXmlDoc(ss, false, false, useOpenStepEpoch);
+		
+		bool pretty           = (flags & 1) != 0;
+		bool includeDTD       = (flags & 2) != 0;
+		bool useOpenStepEpoch = (flags & 4) != 0;
+
+		r.getRootObject().toXmlDoc(ss, pretty, includeDTD, useOpenStepEpoch);
 	}
 
 	copy(xml, ss.str());
@@ -1056,8 +1067,30 @@ int __stdcall  bplist2xml_file(const wchar_t *filename, char **xml, bool useOpen
 }
 
 
+BPLIST_API
+void __stdcall  bplist2xml_free(char *xml)
+{
+	if (xml) 
+		CoTaskMemFree(xml);
+}
+
+
+BPLIST_API
+int __stdcall  bplist2xml_buffer(const char *byteArray, size_t length, char **xml, bool useOpenStepEpoch)
+{
+	return bplist2xml_buffer2(byteArray, length, xml, 4);
+}
+
+
+BPLIST_API
+int __stdcall  bplist2xml_file(const wchar_t *filename, char **xml, bool useOpenStepEpoch)
+{
+	return bplist2xml_file2(filename, xml, 4);
+}
+
+
 /*
-extern "C" __declspec(dllexport)
+BPLIST_API
 int __stdcall test(const char *byteArray, size_t length, char **xml, bool useOpenStepEpoch)
 {
 	(void)byteArray;
