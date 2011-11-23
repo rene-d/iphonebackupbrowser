@@ -938,6 +938,7 @@ namespace iphonebackupbrowser
             iPhoneApp app = (iPhoneApp)listView1.FocusedItem.Tag;
 
             if (app == null) return;
+            if (appsCatalog == null) return;
 
             iPhoneIPA ipa;
             if (!appsCatalog.TryGetValue(app.Identifier, out ipa))
