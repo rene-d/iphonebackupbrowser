@@ -4,19 +4,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
+using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Windows.Forms;
-using System.IO;
-using System.Xml;
-using System.Xml.Serialization;
-using System.Diagnostics;
-using System.IO.Compression;
-using System.Threading;
-
 using mbdbdump;
+using System.Data.SQLite;
 
 
 namespace iphonebackupbrowser
@@ -160,8 +153,9 @@ namespace iphonebackupbrowser
         private List<mbdb.MBFileRecord> files92;
 
         // apps from iTunes
-        private string appsDirectory;
-        private Dictionary<string, iPhoneIPA> appsCatalog;
+        //private string appsDirectory;
+        //private Dictionary<string, iPhoneIPA> appsCatalog;
+        private iPhoneApps appsCatalog;
 
         private ListViewColumnSorter lvwColumnSorter1, lvwColumnSorter2;
 
@@ -255,102 +249,8 @@ namespace iphonebackupbrowser
 
         private void LoadIPAs(BackgroundWorker worker, DoWorkEventArgs e)
         {
-            Dictionary<string, iPhoneIPA> apps = new Dictionary<string, iPhoneIPA>();
-            string appsDirectory;
-
-            try
-            {
-                appsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
-                appsDirectory = Path.Combine(appsDirectory, "iTunes", "Mobile Applications");
-
-                DirectoryInfo d = new DirectoryInfo(appsDirectory);
-
-                FileInfo[] fi = d.GetFiles("*.ipa");
-
-                int lastprogress = -1;
-
-                for (int i = 0; i < fi.Length; ++i)
-                {
-                    if (worker.CancellationPending) e.Cancel = true;
-
-                    //System.Threading.Thread.Sleep(20);
-
-                    int progress = (i * 100 / fi.Length);
-                    if (lastprogress != progress)
-                    {
-                        lastprogress = progress;
-                        worker.ReportProgress(progress, fi[i].Name);
-                    }
-
-                    using (ZipStorer zip = ZipStorer.Open(fi[i].FullName, FileAccess.Read))
-                    {
-                        iPhoneIPA ipa = new iPhoneIPA();
-
-                        ipa.fileName = fi[i].Name;
-
-                        foreach (ZipStorer.ZipFileEntry f in zip.ReadCentralDir())
-                        {
-                            if (worker.CancellationPending) e.Cancel = true;
-
-                            // computes the files total size
-                            ipa.totalSize += f.FileSize;
-
-                            // analyzes the app metadata
-                            if (f.FilenameInZip == "iTunesMetadata.plist")
-                            {
-                                MemoryStream mem = new MemoryStream();
-                                zip.ExtractFile(f, mem);
-
-                                ipa.softwareVersionBundleId = f.Comment;
-
-                                if (mem.Length <= 8) continue;
-
-                                byte[] xml = mem.ToArray();
-
-                                // iTunesMetadata.plist is actually a binary plist
-                                if (xml[0] == 'b' && xml[1] == 'p')
-                                    DLL.bplist2xml(mem.ToArray(), (int)mem.Length, out xml, false);
-
-                                if (xml != null)
-                                {
-                                    using (StreamReader sr = new StreamReader(new MemoryStream(xml)))
-                                    {
-                                        xdict dd = xdict.open(sr);
-
-                                        if (dd != null)
-                                        {
-                                            dd.findKey("softwareVersionBundleId", out ipa.softwareVersionBundleId);
-                                            dd.findKey("itemName", out ipa.itemName);                                                
-                                        }                                       
-                                    }
-                                }
-                            }
-                        }
-
-                        // if we have found the app id
-                        if (ipa.softwareVersionBundleId != null)
-                        {
-                            //Debug.WriteLine("{0} {1}", fi[i].Name, softwareVersionBundleId);
-
-                            // if the BundleId has been already found in some .ipa, we assume this one is more recent
-                            if (apps.ContainsKey(ipa.softwareVersionBundleId))
-                                apps[ipa.softwareVersionBundleId] = ipa;
-                            else
-                                apps.Add(ipa.softwareVersionBundleId, ipa);
-                        }
-                    }
-
-                }
-            }
-            catch (DirectoryNotFoundException /*ex*/)
-            {
-                apps = null;
-                appsDirectory = null;
-                //MessageBox.Show(ex.ToString());
-            }
-
-            this.appsCatalog = apps;
-            this.appsDirectory = appsDirectory;
+            appsCatalog = new iPhoneApps();
+            appsCatalog.LoadIPAs(worker, e);
         }
 
         
@@ -566,6 +466,8 @@ namespace iphonebackupbrowser
         private void addApp(iPhoneApp app)
         {
             iPhoneIPA ipa = null;
+
+            
             if (appsCatalog != null)
             {
                 appsCatalog.TryGetValue(app.Identifier, out ipa);
@@ -916,6 +818,7 @@ namespace iphonebackupbrowser
         private void listView2_ItemDrag(object sender, ItemDragEventArgs e)
         {
             string[] filenames;
+            //string[] filenames_real;
 
             string ext = "";
             if (files92 == null) ext = ".mddata";
@@ -924,10 +827,14 @@ namespace iphonebackupbrowser
 
             int k = 0;
             filenames = new string[listView2.SelectedItems.Count];
+            //filenames_real = new string[listView2.SelectedItems.Count];
 
             foreach (ListViewItem i in listView2.SelectedItems)
             {
-                filenames[k++] = Path.Combine(backup.path, ((iPhoneFile)i.Tag).Key + ext);
+                filenames[k] = Path.Combine(backup.path, ((iPhoneFile)i.Tag).Key + ext);
+                //filenames_real[k] = "";
+
+                ++k;
             }
 
             listView2.DoDragDrop(new DataObject(DataFormats.FileDrop, filenames), DragDropEffects.Copy);
@@ -961,7 +868,7 @@ namespace iphonebackupbrowser
             if (!appsCatalog.TryGetValue(app.Identifier, out ipa))
                 return;
 
-            string argument = @"/select, """ + Path.Combine(appsDirectory, ipa.fileName) + @"""";
+            string argument = @"/select, """ + Path.Combine(appsCatalog.appsDirectory, ipa.fileName) + @"""";
             System.Diagnostics.Process.Start("explorer.exe", argument);
         }
 
@@ -1121,6 +1028,67 @@ namespace iphonebackupbrowser
         private void toolStripButton3_Click(object sender, EventArgs e)
         {
             LoadManifests();
+        }
+
+        private void toolStripButton4_Click(object sender, EventArgs e)
+        {
+            string filename;
+            string dest_root;
+            string dest;
+
+            string ext = (files92 == null) ? ".mddata" : "";
+
+            iPhoneBackup backup = currentBackup;
+            iPhoneApp app = listView1.FocusedItem.Tag as iPhoneApp;
+
+            if (backup == null || app == null)
+                return;
+
+            dest_root = dest = Path.Combine(@"C:\temp", backup.DeviceName, app.Name );
+
+            foreach (ListViewItem i in listView2.SelectedItems)
+            {
+                iPhoneFile f = i.Tag as iPhoneFile;
+                if (f !=null)
+                {
+                    filename = Path.Combine(backup.path, f.Key + ext);
+
+                    dest = Path.Combine(dest_root, f.Path);
+
+                    dest = dest.Normalize(NormalizationForm.FormC);
+
+                    StringBuilder sb = new StringBuilder(dest.Length);
+                    char[] ss = Path.GetInvalidPathChars();
+
+                    Array.Sort(ss);
+
+                    foreach (char c in dest)
+                    {
+                        //System.IO.Path.GetInvalidFileNameChars()
+                        if (c == Path.DirectorySeparatorChar || c == Path.AltDirectorySeparatorChar)
+                        {
+                            sb.Append(Path.DirectorySeparatorChar);
+                        }
+                        else if (c == Path.VolumeSeparatorChar)
+                        {
+                            sb.Append(c);
+                        }
+                        else if (Array.BinarySearch(ss, c) >= 0)
+                        {
+                            sb.Append('_');
+                        }
+                        else
+                        {
+                            sb.Append(c);
+                        }
+                    }
+
+                    dest = sb.ToString();
+                    Directory.CreateDirectory(Path.GetDirectoryName(dest));
+                    File.Copy(filename, dest, true);
+                }
+            }
+
         }
 
     }

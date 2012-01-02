@@ -22,8 +22,8 @@ namespace iphonebackupbrowser
         [DllImport("bplist.dll", EntryPoint = "mdinfo", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
         public static extern int mdinfo(string filename, out string Domain, out string Path);
 
-        [DllImport("ibbsearch.dll", EntryPoint = "search", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
-        public static extern void search(string filename, string pattern, out string results);
+        //[DllImport("ibbsearch.dll", EntryPoint = "search", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        //public static extern void search(string filename, string pattern, out string results);
 
         // En C#, string et byte[] ne représentent pas la même chose: il y a la notion d'encoding dans une string,
         // (c'est forcément de l'Unicode), même marshalée depuis const char* d'une DLL non managée, qui est forcément
