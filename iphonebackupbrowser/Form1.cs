@@ -10,6 +10,7 @@ using System.Text;
 using System.Windows.Forms;
 using mbdbdump;
 using System.Data.SQLite;
+using System.Runtime.Serialization.Plists;
 
 
 namespace iphonebackupbrowser
@@ -146,8 +147,6 @@ namespace iphonebackupbrowser
 
         private List<iPhoneBackup> backups = new List<iPhoneBackup>();
 
-        // manifest data of old backups
-        private iPhoneManifestData manifest;
 
         // file list for new backups
         private List<mbdb.MBFileRecord> files92;
@@ -175,7 +174,7 @@ namespace iphonebackupbrowser
             this.toolStrip1.Location = new System.Drawing.Point(0, 0);
             
             
-            listView1.Columns.Add("Display Name", 200);
+            listView1.Columns.Add("Key", 200);
             listView1.Columns.Add("Name", 200);
             listView1.Columns.Add("Files", 50, HorizontalAlignment.Right);
             listView1.Columns.Add("Size", 90, HorizontalAlignment.Right);
@@ -330,126 +329,6 @@ namespace iphonebackupbrowser
         }
 
 
-        #region parse iTunes -> 9.1 (deprecated)
-
-        private void parseApplications(xdict di, HashSet<string> files)
-        {
-            dict sd;
-
-            if (!di.findKey("Applications", out sd))
-                return;
-
-            //manifest.Applications = new List<iPhoneApp>();
-
-            foreach (xdictpair p in new xdict(sd))
-            {
-                iPhoneApp app = new iPhoneApp();
-
-                app.Key = p.key;
-
-                foreach (xdictpair q in new xdict(p.item))
-                {
-                    if (q.key == "AppInfo")
-                    {
-                        xdict zz = new xdict(q.item);
-
-                        zz.findKey("CFBundleDisplayName", out app.DisplayName);
-                        zz.findKey("CFBundleName", out app.Name);
-                        zz.findKey("CFBundleIdentifier", out app.Identifier);
-                        zz.findKey("Container", out app.Container);
-                    }
-                    else if (q.key == "Files" && q.item.GetType() == typeof(array))
-                    {
-                        array ar = (array)q.item;
-
-                        app.Files = new List<String>();
-
-                        for (int k = 0; k < ar.Items.Length; ++k)
-                        {
-                            string name = (string)ar.Items[k];
-                            app.Files.Add(name);
-                            files.Add(name);
-                        }
-                    }
-                }
-
-                // il y a des applis mal paramétrées...
-                if (app.Name == null) app.Name = app.Key;
-                if (app.DisplayName == null) app.DisplayName = app.Name;
-
-                //manifest.Applications.Add(app);
-
-                ListViewItem lvi = new ListViewItem();
-                lvi.Tag = app;
-                lvi.Text = app.DisplayName;
-                lvi.SubItems.Add(app.Name);
-                lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString() : "N/A");
-                //lvi.SubItems.Add(app.Identifier != null ? app.Identifier : "N/A");
-                listView1.Items.Add(lvi);
-            }
-        }
-
-
-        private void parseFiles(xdict di, HashSet<string> files)
-        {
-            dict sd;
-
-            if (!di.findKey("Files", out sd))
-                return;
-
-            manifest.Files = new Dictionary<string, iPhoneFile>();
-
-            iPhoneApp system = new iPhoneApp();
-            system.Name = "System";
-            system.DisplayName = "---";
-            system.Identifier = "---";
-            system.Container = "---";
-            system.Files = new List<String>();
-
-            foreach (xdictpair p in new xdict(sd))
-            {
-                //Debug.WriteLine("{0} {1}", p.key, p.item);
-
-                iPhoneFile f = new iPhoneFile();
-
-                f.Key = p.key;
-                f.Path = null;
-
-                foreach (xdictpair q in new xdict(p.item))
-                {
-                    //Debug.WriteLine("{0} {1}", q.key, q.item);
-
-                    if (q.key == "Domain")
-                        f.Domain = (string)q.item;
-                    else if (q.key == "ModificationTime")
-                        f.ModificationTime = DateTime.Parse((string)q.item);
-                    else if (q.key == "FileLength")
-                        f.FileLength = Convert.ToInt64((string)q.item);
-                }
-
-                manifest.Files.Add(p.key, f);
-
-                if (!files.Contains(p.key))
-                {
-                    system.Files.Add(p.key);
-                }
-            }
-
-
-            if (system.Files.Count != 0)
-            {
-                ListViewItem lvi = new ListViewItem();
-                lvi.Tag = system;
-                lvi.Text = system.DisplayName;
-                lvi.SubItems.Add(system.Name);
-                lvi.SubItems.Add(system.Files != null ? system.Files.Count.ToString() : "N/A");
-                //lvi.SubItems.Add(system.Identifier != null ? system.Identifier : "N/A");                
-                listView1.Items.Add(lvi);
-            }
-        }
-        #endregion
-
-
         private class appFiles
         {
             public List<int> indexes = new List<int>();
@@ -475,8 +354,8 @@ namespace iphonebackupbrowser
 
             ListViewItem lvi = new ListViewItem();
             lvi.Tag = app;
-            lvi.Text = app.DisplayName;
-            lvi.SubItems.Add(ipa != null ? ipa.itemName : app.Name);
+            lvi.Text = app.Key;
+            lvi.SubItems.Add(ipa != null ? ipa.itemName : app.Key);
             lvi.SubItems.Add(app.Files != null ? app.Files.Count.ToString("N0") : "N/A");
             lvi.SubItems.Add(app.FilesLength.ToString("N0"));
             lvi.SubItems.Add(ipa != null ? ipa.totalSize.ToString("N0") : "");
@@ -489,14 +368,13 @@ namespace iphonebackupbrowser
         }
 
 
-        private void parseAll92(xdict mbdb)
+        private void parseAll92(IDictionary mbdb)
         {
-            dict sd;
-
-            if (!mbdb.findKey("Applications", out sd))
+            var sd = mbdb["Applications"] as Dictionary<object, object>;
+            if (sd == null)
                 return;
 
-            Dictionary<string, appFiles> filesByDomain = new Dictionary<string, appFiles>();
+            var filesByDomain = new Dictionary<string, appFiles>();
             
             for (int i = 0; i < files92.Count; ++i)
             {
@@ -511,21 +389,22 @@ namespace iphonebackupbrowser
             }
 
 
-            foreach (xdictpair p in new xdict(sd))
+            foreach (var p in sd)
             {
                 iPhoneApp app = new iPhoneApp();
 
-                app.Key = p.key;
+                app.Key = p.Key as string;
 
-                xdict zz = new xdict(p.item);
-                zz.findKey("CFBundleDisplayName", out app.DisplayName);
-                zz.findKey("CFBundleName", out app.Name);
-                zz.findKey("CFBundleIdentifier", out app.Identifier);
-                zz.findKey("Container", out app.Container);
+                var zz = p.Value as IDictionary;
 
+                //app.DisplayName = zz["CFBundleDisplayName"] as string;
+                //app.Name = zz["CFBundleName"] as string;
+                app.Identifier = zz["CFBundleIdentifier"] as string;
+                app.Container = zz["Path"] as string;
+                
                 // il y a des applis mal paramétrées...
-                if (app.Name == null) app.Name = app.Key;
-                if (app.DisplayName == null) app.DisplayName = app.Name;
+                //if (app.Name == null) app.Name = app.Key;
+                //if (app.DisplayName == null) app.DisplayName = app.Name;
 
                 if (filesByDomain.ContainsKey("AppDomain-" + app.Key))
                 {
@@ -547,8 +426,9 @@ namespace iphonebackupbrowser
             {
                 iPhoneApp system = new iPhoneApp();
 
-                system.Name = "System";
-                system.DisplayName = "---";
+                system.Key = "---";
+                //system.Name = "System";
+                //system.DisplayName = "---";
                 system.Identifier = "---";
                 system.Container = "---";
                 system.Files = new List<String>();
@@ -593,8 +473,7 @@ namespace iphonebackupbrowser
 
             listView1.Items.Clear();
             listView2.Items.Clear();
-            buttonCSVExport.Enabled = false;
-            manifest = null;
+            buttonCSVExport.Enabled = false;            
             files92 = null;
 
             try
@@ -606,59 +485,12 @@ namespace iphonebackupbrowser
                 {
                     files92 = mbdbdump.mbdb.ReadMBDB(backup.path);
 
-                    byte[] xml;
-                    DLL.bplist2xml(Path.Combine(backup.path, "Manifest.plist"), out xml, false);
+                    BinaryPlistReader az = new BinaryPlistReader();
+                    IDictionary er = az.ReadObject(Path.Combine(backup.path, "Manifest.plist"));
 
-                    if (xml != null)
-                    {
-                        using (StreamReader sr = new StreamReader(new MemoryStream(xml)))
-                        {
-                            xdict dd = xdict.open(sr);
-
-                            if (dd != null)
-                            {
-                                parseAll92(dd);
-                            }
-                        }
-
-                        return;
-                    }
+                    parseAll92(er);
                 }
 
-
-                // backup iTunes 8.2+ et <= 9.1.1
-                xdict d = xdict.open(Path.Combine(backup.path, "Manifest.plist"));
-
-                string data;
-
-                if (d != null && d.findKey("Data", out data))
-                {
-                    byte[] bdata = Convert.FromBase64String(data);
-                    byte[] xml;
-
-                    DLL.bplist2xml(bdata, bdata.Length, out xml, false);
-
-                    if (xml != null)
-                    {
-                        using (StreamReader sr = new StreamReader(new MemoryStream(xml)))
-                        {
-                            xdict dd = xdict.open(sr);
-
-                            if (dd != null)
-                            {
-                                manifest = new iPhoneManifestData();
-
-                                HashSet<string> files = new HashSet<string>();
-
-                                parseApplications(dd, files);
-
-                                parseFiles(dd, files);
-                            }
-                        }
-                    }
-
-                    return;
-                }
             }
             catch (InvalidOperationException ex)
             {
@@ -693,9 +525,7 @@ namespace iphonebackupbrowser
                 {
                     iPhoneFile ff;
 
-                    if (manifest == null)
-                    {
-                        ff = new iPhoneFile();
+                      ff = new iPhoneFile();
 
                         mbdb.MBFileRecord x = files92[Int32.Parse(f)];
 
@@ -704,22 +534,7 @@ namespace iphonebackupbrowser
                         ff.Path = x.Path;
                         ff.ModificationTime = x.aTime;
                         ff.FileLength = x.FileLength;
-                    }
-                    else
-                    {
-                        //Debug.WriteLine("{0} {1}", f, "");
-                        ff = manifest.Files[f];
-
-                        iPhoneBackup backup = currentBackup;
-
-                        if (ff.Path == null)
-                        {
-                            string domain;
-                            DLL.mdinfo(Path.Combine(backup.path, f + ".mdinfo"), out domain, out ff.Path);
-                            if (ff.Path == null)
-                                ff.Path = "N/A";
-                        }
-                    }
+                    
 
 
                     ListViewItem lvi = new ListViewItem();
@@ -886,7 +701,7 @@ namespace iphonebackupbrowser
             fd.Filter = "CSV file (*.csv)|*.csv|All files (*.*)|*.*";
             fd.FilterIndex = 1;
             fd.RestoreDirectory = true;
-            fd.Title = "Export the file list of '" + app.Name + "' application";
+            fd.Title = "Export the file list of '" + app.Key + "' application";
 
             if (fd.ShowDialog() != DialogResult.OK)
                 return;
@@ -897,51 +712,20 @@ namespace iphonebackupbrowser
                 {
                     fs.WriteLine("Path;FileLength;ModificationTime;Domain;Key");                    
 
-                    if (manifest.Files == null)
+                    foreach (string f in app.Files)
                     {
-                        foreach (string f in app.Files)
-                        {
-                            mbdb.MBFileRecord x = files92[Int32.Parse(f)];
+                        mbdb.MBFileRecord x = files92[Int32.Parse(f)];
 
-                            fs.Write(x.Path);
-                            fs.Write(';');
-                            fs.Write(x.FileLength);
-                            fs.Write(';');
-                            fs.Write(x.aTime.ToString());
-                            fs.Write(';');
-                            fs.Write(x.Domain);
-                            fs.Write(';');
-                            fs.Write(x.key);
-                            fs.WriteLine();
-                        }
-                    }
-                    else
-                    {
-                        iPhoneBackup backup = currentBackup;
-
-                        foreach (string f in app.Files)
-                        {
-                            iPhoneFile ff = manifest.Files[f];
-
-                            if (ff.Path == null)
-                            {
-                                string domain;
-                                DLL.mdinfo(Path.Combine(backup.path, f + ".mdinfo"), out domain, out ff.Path);
-                                if (ff.Path == null)
-                                    ff.Path = "N/A";
-                            }
-
-                            fs.Write(ff.Path);
-                            fs.Write(';');
-                            fs.Write(ff.FileLength);
-                            fs.Write(';');
-                            fs.Write(ff.ModificationTime);
-                            fs.Write(';');
-                            fs.Write(ff.Domain);
-                            fs.Write(';');
-                            fs.Write(ff.Key);
-                            fs.WriteLine();
-                        }                        
+                        fs.Write(x.Path);
+                        fs.Write(';');
+                        fs.Write(x.FileLength);
+                        fs.Write(';');
+                        fs.Write(x.aTime.ToString());
+                        fs.Write(';');
+                        fs.Write(x.Domain);
+                        fs.Write(';');
+                        fs.Write(x.key);
+                        fs.WriteLine();
                     }                    
                 }
             }
@@ -1044,7 +828,7 @@ namespace iphonebackupbrowser
             if (backup == null || app == null)
                 return;
 
-            dest_root = dest = Path.Combine(@"C:\temp", backup.DeviceName, app.Name );
+            dest_root = dest = Path.Combine(@"C:\temp", backup.DeviceName, app.Key );
 
             foreach (ListViewItem i in listView2.SelectedItems)
             {

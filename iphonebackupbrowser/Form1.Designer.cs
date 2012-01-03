@@ -152,7 +152,7 @@
             this.toolStripButton4});
             this.toolStrip2.Location = new System.Drawing.Point(71, 0);
             this.toolStrip2.Name = "toolStrip2";
-            this.toolStrip2.Size = new System.Drawing.Size(110, 25);
+            this.toolStrip2.Size = new System.Drawing.Size(79, 25);
             this.toolStrip2.TabIndex = 1;
             // 
             // buttonCSVExport

@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections;
 using System.ComponentModel;
 using System.Data.SQLite;
 using System.IO;
+using System.Text;
 using System.IO.Compression;
 using System.Windows.Forms;
+using System.Runtime.Serialization.Plists;
 
 namespace iphonebackupbrowser
 {
@@ -129,15 +132,31 @@ namespace iphonebackupbrowser
 
                                     if (mem.Length <= 8) continue;
 
-                                    byte[] xml = mem.ToArray();
-
-                                    // iTunesMetadata.plist is actually a binary plist
-                                    if (xml[0] == 'b' && xml[1] == 'p')
-                                        DLL.bplist2xml(mem.ToArray(), (int)mem.Length, out xml, false);
-
-                                    if (xml != null)
+                                    byte[] header = new byte[8];
+                                    mem.Position = 0;
+                                    mem.Read(header, 0, 8);
+                                    mem.Position = 0;
+                                    if (BitConverter.ToString(header, 0) == "62-70-6C-69-73-74-30-30")      // "bplist00"
                                     {
-                                        using (StreamReader sr = new StreamReader(new MemoryStream(xml)))
+                                        try
+                                        {
+                                            // iTunesMetadata.plist is a binary plist ?
+                                            BinaryPlistReader pr = new BinaryPlistReader();
+                                            IDictionary dd = pr.ReadObject(mem);
+
+                                            // yes                                    
+                                            ipa.softwareVersionBundleId = dd["softwareVersionBundleId"] as string;
+                                            ipa.itemName = dd["softwareVersionBundleId"] as string;
+                                        }
+                                        catch (ArgumentException)
+                                        { 
+                                            // error reading bplist
+                                        }
+                                    }
+                                    else
+                                    {
+  
+                                        using (StreamReader sr = new StreamReader(mem))
                                         {
                                             xdict dd = xdict.open(sr);
 
@@ -148,6 +167,7 @@ namespace iphonebackupbrowser
                                             }
                                         }
                                     }
+
                                 }
                             }
 
