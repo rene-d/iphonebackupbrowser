@@ -505,27 +505,29 @@ namespace iphonebackupbrowser
 
         private void listView1_Click(object sender, EventArgs e)
         {
-            iPhoneApp app = (iPhoneApp)listView1.FocusedItem.Tag;
-
             listView2.Items.Clear();
             buttonCSVExport.Enabled = true;
-
-            if (app.Files == null)
-                return;
 
             listView2.BeginUpdate();
             Cursor.Current = Cursors.WaitCursor;
 
             try
             {
-                ListViewItem[] lvic = new ListViewItem[app.Files.Count];
-                int idx = 0;
-
-                foreach (string f in app.Files)
+                foreach (ListViewItem item in listView1.SelectedItems)
                 {
-                    iPhoneFile ff;
+                    iPhoneApp app = (iPhoneApp)item.Tag;
 
-                      ff = new iPhoneFile();
+                    if (app.Files == null)
+                        break;
+
+                    ListViewItem[] lvic = new ListViewItem[app.Files.Count];
+                    int idx = 0;
+
+                    foreach (string f in app.Files)
+                    {
+                        iPhoneFile ff;
+
+                        ff = new iPhoneFile();
 
                         mbdb.MBFileRecord x = files92[Int32.Parse(f)];
 
@@ -534,30 +536,33 @@ namespace iphonebackupbrowser
                         ff.Path = x.Path;
                         ff.ModificationTime = x.aTime;
                         ff.FileLength = x.FileLength;
-                    
 
 
-                    ListViewItem lvi = new ListViewItem();
-                    lvi.Tag = ff;
-                    lvi.Text = ff.Path;
-                    lvi.SubItems.Add(ff.FileLength.ToString("N0"));
-                    lvi.SubItems.Add(ff.ModificationTime.ToString());
-                    lvi.SubItems.Add(ff.Domain);
-                    lvi.SubItems.Add(ff.Key);
 
-                    lvi.SubItems[1].Tag = (long)ff.FileLength;
-                    lvi.SubItems[2].Tag = (long)ff.ModificationTime.ToBinary();
+                        ListViewItem lvi = new ListViewItem();
+                        lvi.Tag = ff;
+                        lvi.Text = ff.Path;
+                        lvi.SubItems.Add(ff.FileLength.ToString("N0"));
+                        lvi.SubItems.Add(ff.ModificationTime.ToString());
+                        lvi.SubItems.Add(ff.Domain);
+                        lvi.SubItems.Add(ff.Key);
 
-                    lvic[idx++] = lvi;
+                        lvi.SubItems[1].Tag = (long)ff.FileLength;
+                        lvi.SubItems[2].Tag = (long)ff.ModificationTime.ToBinary();
+
+                        lvic[idx++] = lvi;
+                    }
+
+                    listView2.Items.AddRange(lvic);
                 }
-
-                listView2.Items.AddRange(lvic); 
             }
             finally
             {
                 listView2.EndUpdate();
                 Cursor.Current = Cursors.Default;
             }
+
+            toolStripButton4.Enabled = (listView2.Items.Count > 0);
         }
 
 
@@ -868,6 +873,7 @@ namespace iphonebackupbrowser
                     }
 
                     dest = sb.ToString();
+                    dest = dest.Replace(':', '_');
                     Directory.CreateDirectory(Path.GetDirectoryName(dest));
                     File.Copy(filename, dest, true);
                 }
