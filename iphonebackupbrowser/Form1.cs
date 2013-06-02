@@ -874,6 +874,7 @@ namespace iphonebackupbrowser
 
                     dest = sb.ToString();
                     dest = dest.Replace(':', '_');
+                    dest = dest.Replace(@"C_\temp", @"C:\temp");
                     Directory.CreateDirectory(Path.GetDirectoryName(dest));
                     File.Copy(filename, dest, true);
                 }
